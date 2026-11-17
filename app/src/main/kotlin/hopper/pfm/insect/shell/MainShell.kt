@@ -39,13 +39,14 @@ import hopper.pfm.insect.R
 import hopper.pfm.insect.core.ui.FloatingBarContentPadding
 import hopper.pfm.insect.core.ui.FloatingNavBar
 import hopper.pfm.insect.core.ui.NavBarItem
+import hopper.pfm.insect.feature.auth.ProfileScreen
 
 /**
  * Main shell: four tabs, a top bar with sync status and notifications, and the floating bottom bar over the content.
  * Tab content is a placeholder until the feature modules arrive (Expense in Phase 5, Budget in 7, Report in 8).
  */
 @Composable
-fun MainShell() {
+fun MainShell(onEditProfile: () -> Unit) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val hazeState = rememberHazeState()
     val tabs = listOf(
@@ -74,15 +75,19 @@ fun MainShell() {
                     Icon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.notifications))
                 }
             }
-            Box(
-                modifier = Modifier.weight(1f).fillMaxWidth().padding(bottom = FloatingBarContentPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = stringResource(R.string.placeholder_coming_soon),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            if (selected == 3) {
+                ProfileScreen(onEdit = onEditProfile, modifier = Modifier.weight(1f))
+            } else {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(bottom = FloatingBarContentPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.placeholder_coming_soon),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
         FloatingNavBar(

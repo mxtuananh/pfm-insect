@@ -72,7 +72,6 @@ suspend inline fun <reified T> HttpClient.callApi(crossinline request: suspend H
     }
 
 suspend fun HttpResponse.toAppError(): AppError {
-    if (status.value == 401) return AppError.Unauthorized
     val body = try {
         body<ErrorDto>()
     } catch (e: CancellationException) {
@@ -80,5 +79,21 @@ suspend fun HttpResponse.toAppError(): AppError {
     } catch (e: Exception) {
         null
     }
+    if (status.value == 401 && body?.code != "invalid_credentials") return AppError.Unauthorized
     return AppError.Server(status.value, body?.code, body?.error)
 }
+
+/** Like callApi for endpoints that answer with an empty body (204). */
+suspend inline fun HttpClient.callApiUnit(crossinline request: suspend HttpClient.() -> HttpResponse): Outcome<Unit> =
+    try {
+        val response = request()
+        if (response.status.isSuccess()) Outcome.Success(Unit) else Outcome.Failure(response.toAppError())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: HttpRequestTimeoutException) {
+        Outcome.Failure(AppError.Timeout)
+    } catch (e: IOException) {
+        Outcome.Failure(AppError.Offline)
+    } catch (e: Exception) {
+        Outcome.Failure(AppError.Unknown(e))
+    }

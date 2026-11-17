@@ -4,7 +4,11 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import hopper.pfm.insect.core.common.TokenStore
+import hopper.pfm.insect.core.datastore.KeystoreTokenStore
+import hopper.pfm.insect.core.domain.AuthRepository
 import hopper.pfm.insect.core.domain.HealthRepository
+import hopper.pfm.insect.core.network.TokenProvider
 import javax.inject.Singleton
 
 @Module
@@ -13,4 +17,14 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindHealthRepository(impl: HealthRepositoryImpl): HealthRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
+
+    @Binds
+    abstract fun bindTokenStore(impl: KeystoreTokenStore): TokenStore
+
+    @Binds
+    abstract fun bindTokenProvider(impl: SessionManager): TokenProvider
 }

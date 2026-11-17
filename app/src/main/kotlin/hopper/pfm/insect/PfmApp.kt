@@ -5,11 +5,20 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import hopper.pfm.insect.core.model.SessionState
+import hopper.pfm.insect.feature.auth.EditProfileScreen
+import hopper.pfm.insect.feature.auth.LoginScreen
+import hopper.pfm.insect.feature.auth.RegisterScreen
+import hopper.pfm.insect.feature.auth.SessionExpiredScreen
 import hopper.pfm.insect.shell.MainShell
 import hopper.pfm.insect.shell.SplashScreen
 import hopper.pfm.insect.shell.StartDestination
@@ -20,18 +29,54 @@ import kotlinx.serialization.Serializable
 data object SplashKey : NavKey
 
 @Serializable
+data object LoginKey : NavKey
+
+@Serializable
+data object RegisterKey : NavKey
+
+@Serializable
+data object SessionExpiredKey : NavKey
+
+@Serializable
 data object MainKey : NavKey
+
+@Serializable
+data object EditProfileKey : NavKey
 
 @Serializable
 data object UpdateRequiredKey : NavKey
 
 /**
- * Root navigation. Splash checks GET /health (minAppVersion); signed-out users will go to Auth in phase 3.
+ * Root navigation. Splash checks GET /health (minAppVersion) and the stored session. Afterwards the session state
+ * decides the root: signed out goes to Login, an expired session to the re-login screen, signed in to Main.
  */
 @Composable
-fun PfmApp() {
+fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
     val backStack = rememberNavBackStack(SplashKey)
     val context = LocalContext.current
+    val session by appViewModel.session.collectAsStateWithLifecycle()
+
+    // Follow session changes once the splash is over (and the app is not blocked by an update).
+    LaunchedEffect(session) {
+        val top = backStack.lastOrNull()
+        if (top == SplashKey || top == UpdateRequiredKey) return@LaunchedEffect
+        val root: NavKey = when (session) {
+            SessionState.SignedIn -> MainKey
+            SessionState.Expired -> SessionExpiredKey
+            SessionState.SignedOut -> LoginKey
+        }
+        val inAuthArea = top == LoginKey || top == RegisterKey
+        val rootChanged = when (root) {
+            MainKey -> top != MainKey && top != EditProfileKey
+            SessionExpiredKey -> top != SessionExpiredKey
+            else -> !inAuthArea
+        }
+        if (rootChanged) {
+            backStack.clear()
+            backStack.add(root)
+        }
+    }
+
     NavDisplay(
         backStack = backStack,
         onBack = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
@@ -43,13 +88,22 @@ fun PfmApp() {
                         backStack.add(
                             when (destination) {
                                 StartDestination.Main -> MainKey
+                                StartDestination.Login -> LoginKey
                                 StartDestination.UpdateRequired -> UpdateRequiredKey
                             },
                         )
                     },
                 )
             }
-            entry<MainKey> { MainShell() }
+            entry<LoginKey> {
+                LoginScreen(onRegister = { backStack.add(RegisterKey) })
+            }
+            entry<RegisterKey> {
+                RegisterScreen(onLogin = { backStack.removeAt(backStack.lastIndex) })
+            }
+            entry<SessionExpiredKey> { SessionExpiredScreen() }
+            entry<MainKey> { MainShell(onEditProfile = { backStack.add(EditProfileKey) }) }
+            entry<EditProfileKey> { EditProfileScreen(onBack = { backStack.removeAt(backStack.lastIndex) }) }
             entry<UpdateRequiredKey> { UpdateRequiredScreen(onUpdate = { openStore(context) }) }
         },
     )

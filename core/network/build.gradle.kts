@@ -13,6 +13,7 @@ dependencies {
     api(project(":core:common"))
     api(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
+    api(libs.ktor.client.auth)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
     api(libs.kotlinx.serialization.json)

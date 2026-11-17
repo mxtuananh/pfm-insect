@@ -3,7 +3,9 @@ package hopper.pfm.insect.shell
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import hopper.pfm.insect.core.domain.AuthRepository
 import hopper.pfm.insect.core.domain.CheckAppSupportUseCase
+import hopper.pfm.insect.core.model.SessionState
 import hopper.pfm.insect.core.model.AppSupport
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -15,11 +17,12 @@ import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 /** Where the splash screen sends the user. Auth is added in phase 3. */
-enum class StartDestination { Main, UpdateRequired }
+enum class StartDestination { Main, Login, UpdateRequired }
 
 @HiltViewModel
 class SplashViewModel @Inject constructor(
     private val checkAppSupport: CheckAppSupportUseCase,
+    private val auth: AuthRepository,
 ) : ViewModel() {
 
     private val _destination = MutableStateFlow<StartDestination?>(null)
@@ -29,10 +32,12 @@ class SplashViewModel @Inject constructor(
         viewModelScope.launch {
             // Show the splash for a moment, but never wait long for the server: the app works offline.
             val minimumShown = async { delay(MIN_SPLASH_MS) }
+            val session = auth.restoreSession()
             val support = withTimeoutOrNull(HEALTH_TIMEOUT_MS) { checkAppSupport() } ?: AppSupport.Supported
             minimumShown.await()
             _destination.value = when (support) {
-                is AppSupport.Supported -> StartDestination.Main
+                is AppSupport.Supported ->
+                    if (session is SessionState.SignedIn) StartDestination.Main else StartDestination.Login
                 is AppSupport.UpdateRequired -> StartDestination.UpdateRequired
             }
         }

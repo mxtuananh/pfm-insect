@@ -18,6 +18,7 @@ dependencyResolutionManagement {
 rootProject.name = "pfm-insect"
 
 include(":app")
+include(":feature:auth")
 include(":core:model")
 include(":core:common")
 include(":core:domain")

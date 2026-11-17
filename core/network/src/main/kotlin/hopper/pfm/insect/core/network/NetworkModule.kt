@@ -8,11 +8,12 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import javax.inject.Singleton
 
-/** Needs an ApiConfig binding, provided by the app module (base URL differs per build type). */
+/** Needs ApiConfig (provided by the app module: the base URL differs per build type) and a TokenProvider (core:data). */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
     @Provides
     @Singleton
-    fun provideHttpClient(config: ApiConfig): HttpClient = createApiClient(OkHttp.create(), config)
+    fun provideHttpClient(config: ApiConfig, tokens: TokenProvider): HttpClient =
+        createApiClient(OkHttp.create(), config) { installBearerAuth(tokens) }
 }
