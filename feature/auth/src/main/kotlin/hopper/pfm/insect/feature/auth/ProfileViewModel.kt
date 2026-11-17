@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import hopper.pfm.insect.core.domain.AuthRepository
+import hopper.pfm.insect.core.domain.sync.SyncRepository
 import hopper.pfm.insect.core.model.UserProfile
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -12,7 +14,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class ProfileViewModel @Inject constructor(private val auth: AuthRepository) : ViewModel() {
+class ProfileViewModel @Inject constructor(
+    private val auth: AuthRepository,
+    sync: SyncRepository,
+) : ViewModel() {
+
+    /** Changes not yet accepted by the server; signing out warns about them. */
+    val pendingChanges: StateFlow<Int> = sync.overview.map { it.pending }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     val profile: StateFlow<UserProfile?> =
         auth.profile.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

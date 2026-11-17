@@ -103,6 +103,7 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val profile by viewModel.profile.collectAsStateWithLifecycle()
+    val pending by viewModel.pendingChanges.collectAsStateWithLifecycle()
     var askLogout by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -130,6 +131,13 @@ fun ProfileScreen(
             title = { Text(stringResource(R.string.logout_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (pending > 0) {
+                        Text(
+                            stringResource(R.string.logout_unsynced_warning),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                     OutlinedButton(onClick = { askLogout = false; viewModel.logout(false) }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.logout_this_device))
                     }

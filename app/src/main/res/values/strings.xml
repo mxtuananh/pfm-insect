@@ -7,6 +7,11 @@
     <string name="tab_profile">Profile</string>
     <string name="placeholder_coming_soon">Coming soon</string>
     <string name="sync_status">Sync status</string>
+    <string name="sync_synced">All changes synced</string>
+    <string name="sync_syncing">Syncing</string>
+    <string name="sync_pending">Changes waiting to sync</string>
+    <string name="sync_offline">Offline - will sync when connected</string>
+    <string name="sync_rejected">Some changes were rejected</string>
     <string name="notifications">Notifications</string>
     <string name="update_title">Update required</string>
     <string name="update_message">This version is no longer supported. Please update the app to continue.</string>

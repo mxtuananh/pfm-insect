@@ -68,9 +68,7 @@ fun MainShell(onEditProfile: () -> Unit) {
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = {}) {
-                    Icon(Icons.Filled.Sync, contentDescription = stringResource(R.string.sync_status))
-                }
+                SyncIndicator()
                 IconButton(onClick = {}) {
                     Icon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.notifications))
                 }

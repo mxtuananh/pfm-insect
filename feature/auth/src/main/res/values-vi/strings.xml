@@ -54,6 +54,7 @@
     <string name="logout_title">Đăng xuất</string>
     <string name="logout_this_device">Chỉ máy này</string>
     <string name="logout_all_devices">Mọi thiết bị</string>
+    <string name="logout_unsynced_warning">Còn thay đổi chưa được đồng bộ. Chúng vẫn nằm trên máy cho đến khi bạn đăng nhập lại.</string>
     <string name="edit_profile_title">Sửa hồ sơ</string>
     <string name="edit_name">Tên hiển thị</string>
     <string name="edit_name_hint">1–50 ký tự</string>

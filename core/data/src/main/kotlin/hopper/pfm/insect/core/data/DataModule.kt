@@ -8,6 +8,8 @@ import hopper.pfm.insect.core.common.TokenStore
 import hopper.pfm.insect.core.datastore.KeystoreTokenStore
 import hopper.pfm.insect.core.domain.AuthRepository
 import hopper.pfm.insect.core.domain.HealthRepository
+import hopper.pfm.insect.core.data.sync.SyncManager
+import hopper.pfm.insect.core.domain.sync.SyncRepository
 import hopper.pfm.insect.core.network.TokenProvider
 import javax.inject.Singleton
 
@@ -27,4 +29,8 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindTokenProvider(impl: SessionManager): TokenProvider
+
+    @Binds
+    @Singleton
+    abstract fun bindSyncRepository(impl: SyncManager): SyncRepository
 }

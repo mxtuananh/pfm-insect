@@ -7,6 +7,11 @@
     <string name="tab_profile">Cá nhân</string>
     <string name="placeholder_coming_soon">Sắp có</string>
     <string name="sync_status">Trạng thái đồng bộ</string>
+    <string name="sync_synced">Đã đồng bộ</string>
+    <string name="sync_syncing">Đang đồng bộ</string>
+    <string name="sync_pending">Có thay đổi chờ đồng bộ</string>
+    <string name="sync_offline">Ngoại tuyến - sẽ đồng bộ khi có mạng</string>
+    <string name="sync_rejected">Có thay đổi bị từ chối</string>
     <string name="notifications">Thông báo</string>
     <string name="update_title">Cần cập nhật</string>
     <string name="update_message">Phiên bản này không còn được hỗ trợ. Vui lòng cập nhật ứng dụng để tiếp tục.</string>
