@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -127,3 +130,8 @@ private fun NavSlot(item: NavBarItem, selected: Boolean, onClick: () -> Unit) {
         }
     }
 }
+
+/** Space a scrolling screen must keep free at its bottom: the floating bar plus the system navigation bar. */
+@Composable
+fun floatingBarSpace(): androidx.compose.ui.unit.Dp =
+    FloatingBarContentPadding + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()

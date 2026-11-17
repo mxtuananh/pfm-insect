@@ -8,6 +8,9 @@ import hopper.pfm.insect.core.common.TokenStore
 import hopper.pfm.insect.core.datastore.KeystoreTokenStore
 import hopper.pfm.insect.core.domain.AuthRepository
 import hopper.pfm.insect.core.domain.HealthRepository
+import hopper.pfm.insect.core.domain.expense.CategoryRepository
+import hopper.pfm.insect.core.domain.expense.ExpenseRepository
+import hopper.pfm.insect.core.domain.expense.UserSettings
 import hopper.pfm.insect.core.data.sync.SyncManager
 import hopper.pfm.insect.core.domain.sync.SyncRepository
 import hopper.pfm.insect.core.network.TokenProvider
@@ -33,4 +36,16 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindSyncRepository(impl: SyncManager): SyncRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindExpenseRepository(impl: ExpenseRepositoryImpl): ExpenseRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCategoryRepository(impl: CategoryRepositoryImpl): CategoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUserSettings(impl: UserSettingsImpl): UserSettings
 }

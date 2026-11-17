@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="category_title">Danh mục</string>
+    <string name="category_add">Danh mục</string>
+    <string name="category_edit_title">Sửa danh mục</string>
+    <string name="category_new_title">Danh mục mới</string>
+    <string name="category_pending">Chờ đồng bộ</string>
+    <string name="category_rejected">Server từ chối</string>
+    <string name="category_archived_section">Đã lưu trữ (%1$d)</string>
+    <string name="category_archived_hint">Lưu trữ · vẫn hiện ở chi tiêu cũ</string>
+    <string name="category_name">Tên danh mục</string>
+    <string name="category_name_hint">1–50 ký tự</string>
+    <string name="category_name_required">Nhập tên danh mục</string>
+    <string name="category_icon">Biểu tượng</string>
+    <string name="category_color">Màu</string>
+    <string name="category_archive">Lưu trữ danh mục</string>
+    <string name="category_archive_hint">Ẩn khỏi lựa chọn mới, chi tiêu cũ vẫn giữ</string>
+    <string name="category_no_delete">Danh mục không xóa được, chỉ lưu trữ.</string>
+    <string name="category_save">Lưu</string>
+    <string name="category_back">Quay lại</string>
+    <string name="category_empty">Chưa có danh mục</string>
+</resources>

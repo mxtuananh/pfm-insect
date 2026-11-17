@@ -19,6 +19,9 @@ import hopper.pfm.insect.feature.auth.EditProfileScreen
 import hopper.pfm.insect.feature.auth.LoginScreen
 import hopper.pfm.insect.feature.auth.RegisterScreen
 import hopper.pfm.insect.feature.auth.SessionExpiredScreen
+import hopper.pfm.insect.feature.category.CategoryEditScreen
+import hopper.pfm.insect.feature.category.CategoryListScreen
+import hopper.pfm.insect.feature.expense.ExpenseFormScreen
 import hopper.pfm.insect.shell.MainShell
 import hopper.pfm.insect.shell.SplashScreen
 import hopper.pfm.insect.shell.StartDestination
@@ -45,6 +48,15 @@ data object EditProfileKey : NavKey
 
 @Serializable
 data object UpdateRequiredKey : NavKey
+
+@Serializable
+data class ExpenseFormKey(val expenseId: String? = null) : NavKey
+
+@Serializable
+data object CategoriesKey : NavKey
+
+@Serializable
+data class CategoryEditKey(val categoryId: String? = null) : NavKey
 
 /**
  * Root navigation. Splash checks GET /health (minAppVersion) and the stored session. Afterwards the session state
@@ -102,7 +114,31 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
                 RegisterScreen(onLogin = { backStack.removeAt(backStack.lastIndex) })
             }
             entry<SessionExpiredKey> { SessionExpiredScreen() }
-            entry<MainKey> { MainShell(onEditProfile = { backStack.add(EditProfileKey) }) }
+            entry<MainKey> {
+                MainShell(
+                    onEditProfile = { backStack.add(EditProfileKey) },
+                    onAddExpense = { backStack.add(ExpenseFormKey()) },
+                    onEditExpense = { backStack.add(ExpenseFormKey(it)) },
+                    onCategories = { backStack.add(CategoriesKey) },
+                )
+            }
+            entry<ExpenseFormKey> { key ->
+                ExpenseFormScreen(
+                    expenseId = key.expenseId,
+                    onBack = { backStack.removeAt(backStack.lastIndex) },
+                    onNewCategory = { backStack.add(CategoryEditKey()) },
+                    onDeleted = { backStack.removeAt(backStack.lastIndex) },
+                )
+            }
+            entry<CategoriesKey> {
+                CategoryListScreen(
+                    onBack = { backStack.removeAt(backStack.lastIndex) },
+                    onEdit = { backStack.add(CategoryEditKey(it)) },
+                )
+            }
+            entry<CategoryEditKey> { key ->
+                CategoryEditScreen(categoryId = key.categoryId, onBack = { backStack.removeAt(backStack.lastIndex) })
+            }
             entry<EditProfileKey> { EditProfileScreen(onBack = { backStack.removeAt(backStack.lastIndex) }) }
             entry<UpdateRequiredKey> { UpdateRequiredScreen(onUpdate = { openStore(context) }) }
         },

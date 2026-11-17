@@ -36,17 +36,24 @@ import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import hopper.pfm.insect.R
-import hopper.pfm.insect.core.ui.FloatingBarContentPadding
+import hopper.pfm.insect.core.ui.floatingBarSpace
 import hopper.pfm.insect.core.ui.FloatingNavBar
 import hopper.pfm.insect.core.ui.NavBarItem
+import hopper.pfm.insect.feature.auth.ProfileLinks
 import hopper.pfm.insect.feature.auth.ProfileScreen
+import hopper.pfm.insect.feature.expense.ExpenseListScreen
 
 /**
  * Main shell: four tabs, a top bar with sync status and notifications, and the floating bottom bar over the content.
  * Tab content is a placeholder until the feature modules arrive (Expense in Phase 5, Budget in 7, Report in 8).
  */
 @Composable
-fun MainShell(onEditProfile: () -> Unit) {
+fun MainShell(
+    onEditProfile: () -> Unit,
+    onAddExpense: () -> Unit,
+    onEditExpense: (String) -> Unit,
+    onCategories: () -> Unit,
+) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val hazeState = rememberHazeState()
     val tabs = listOf(
@@ -73,11 +80,22 @@ fun MainShell(onEditProfile: () -> Unit) {
                     Icon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.notifications))
                 }
             }
-            if (selected == 3) {
-                ProfileScreen(onEdit = onEditProfile, modifier = Modifier.weight(1f))
+            if (selected == 0) {
+                ExpenseListScreen(
+                    onAdd = onAddExpense,
+                    onEdit = onEditExpense,
+                    bottomBarSpace = floatingBarSpace(),
+                    modifier = Modifier.weight(1f),
+                )
+            } else if (selected == 3) {
+                ProfileScreen(
+                    onEdit = onEditProfile,
+                    links = ProfileLinks(onCategories = onCategories),
+                    modifier = Modifier.weight(1f),
+                )
             } else {
                 Box(
-                    modifier = Modifier.weight(1f).fillMaxWidth().padding(bottom = FloatingBarContentPadding),
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(bottom = floatingBarSpace()),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(

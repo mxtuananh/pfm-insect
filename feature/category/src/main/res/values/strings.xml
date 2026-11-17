@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="category_title">Categories</string>
+    <string name="category_add">Category</string>
+    <string name="category_edit_title">Edit category</string>
+    <string name="category_new_title">New category</string>
+    <string name="category_pending">Waiting to sync</string>
+    <string name="category_rejected">Rejected by the server</string>
+    <string name="category_archived_section">Archived (%1$d)</string>
+    <string name="category_archived_hint">Archived · still shown on old expenses</string>
+    <string name="category_name">Category name</string>
+    <string name="category_name_hint">1 to 50 characters</string>
+    <string name="category_name_required">Enter a name</string>
+    <string name="category_icon">Icon</string>
+    <string name="category_color">Color</string>
+    <string name="category_archive">Archive category</string>
+    <string name="category_archive_hint">Hidden from new choices, old expenses keep it</string>
+    <string name="category_no_delete">Categories cannot be deleted, only archived.</string>
+    <string name="category_save">Save</string>
+    <string name="category_back">Back</string>
+    <string name="category_empty">No categories yet</string>
+</resources>

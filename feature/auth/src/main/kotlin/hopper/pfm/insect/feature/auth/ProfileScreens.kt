@@ -57,7 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hopper.pfm.insect.core.model.UserProfile
-import hopper.pfm.insect.core.ui.FloatingBarContentPadding
+import hopper.pfm.insect.core.ui.floatingBarSpace
 import hopper.pfm.insect.core.ui.PfmBanner
 import hopper.pfm.insect.core.ui.PfmPrimaryButton
 import hopper.pfm.insect.core.ui.PfmTextField
@@ -123,7 +123,7 @@ fun ProfileScreen(
             onClick = { askLogout = true },
             danger = true,
         )
-        Spacer(Modifier.height(FloatingBarContentPadding))
+        Spacer(Modifier.height(floatingBarSpace()))
     }
     if (askLogout) {
         AlertDialog(
@@ -269,7 +269,7 @@ fun EditProfileScreen(onBack: () -> Unit, viewModel: EditProfileViewModel = hilt
                         value = "${state.timezone} (${gmtOffset(state.timezone)})",
                         onValueChange = {},
                         label = stringResource(R.string.edit_timezone),
-                        enabled = false,
+                        readOnly = true,
                     )
                     Box(Modifier.matchParentSize().clickable { pickingZone = true })
                 }
