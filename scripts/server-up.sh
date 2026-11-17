@@ -21,6 +21,7 @@ docker start pfm-insect-db >/dev/null 2>&1 || docker run -d --name pfm-insect-db
 sleep 5
 export DB_URL=r2dbc:postgresql://localhost:15433/pfm DB_USER=pfm JWT_ISSUER=http://localhost:8080/ \
   JWT_AUDIENCE=pfm-users JWT_REALM=pfm OPENAPI_ENABLED=true APP_VERSION=dev
-nohup java -Duser.timezone=UTC -cp "$S/src/build/install/pfm/lib/*" io.ktor.server.netty.EngineMain > "$S/server.log" 2>&1 &
+CP="$S/src/build/install/pfm/lib/*"; command -v cygpath >/dev/null && CP="$(cygpath -w "$S/src/build/install/pfm/lib")\*"
+nohup java -Duser.timezone=UTC -cp "$CP" io.ktor.server.netty.EngineMain > "$S/server.log" 2>&1 &
 sleep 20; adb reverse tcp:8080 tcp:8080 || true
 curl -s localhost:8080/health; echo
