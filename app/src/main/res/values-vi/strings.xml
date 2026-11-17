@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PFM Insect</string>
+    <string name="tab_expenses">Chi tiêu</string>
+    <string name="tab_budgets">Hạn mức</string>
+    <string name="tab_reports">Báo cáo</string>
+    <string name="tab_profile">Cá nhân</string>
+    <string name="placeholder_coming_soon">Sắp có</string>
+    <string name="sync_status">Trạng thái đồng bộ</string>
+    <string name="notifications">Thông báo</string>
+    <string name="update_title">Cần cập nhật</string>
+    <string name="update_message">Phiên bản này không còn được hỗ trợ. Vui lòng cập nhật ứng dụng để tiếp tục.</string>
+    <string name="update_action">Cập nhật ngay</string>
+</resources>

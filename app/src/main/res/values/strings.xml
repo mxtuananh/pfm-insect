@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PFM Insect</string>
+    <string name="tab_expenses">Expenses</string>
+    <string name="tab_budgets">Budgets</string>
+    <string name="tab_reports">Reports</string>
+    <string name="tab_profile">Profile</string>
+    <string name="placeholder_coming_soon">Coming soon</string>
+    <string name="sync_status">Sync status</string>
+    <string name="notifications">Notifications</string>
+    <string name="update_title">Update required</string>
+    <string name="update_message">This version is no longer supported. Please update the app to continue.</string>
+    <string name="update_action">Update now</string>
+</resources>
