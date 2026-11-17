@@ -16,20 +16,22 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import hopper.pfm.insect.R
-import kotlinx.coroutines.delay
 
 @Composable
-fun SplashScreen(onFinished: () -> Unit) {
-    val finished = rememberUpdatedState(onFinished)
-    LaunchedEffect(Unit) {
-        delay(800)
-        finished.value()
+fun SplashScreen(onDestination: (StartDestination) -> Unit, viewModel: SplashViewModel = hiltViewModel()) {
+    val destination by viewModel.destination.collectAsStateWithLifecycle()
+    val navigate = rememberUpdatedState(onDestination)
+    LaunchedEffect(destination) {
+        destination?.let { navigate.value(it) }
     }
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(
