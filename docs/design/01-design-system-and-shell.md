@@ -14,3 +14,12 @@ Penpot pages: `01 Design System` (boards Colors, Typography & Shape, Components)
   add/edit expense from the FAB.
 - Splash checks session and `GET /health`; `minAppVersion` greater than the app version blocks with an update screen.
 - Icons: Material Symbols (the drawn glyphs are placeholders).
+
+## Revision 2 (user feedback)
+- Rounder language: buttons/chips/text fields/banners/snackbar are pills; cards 28-32dp; dialog 40dp; FAB and icons are circles.
+  Shape scale: extraSmall 8, small 16, medium 24, large 32, extraLarge 40, full.
+- Main screen: **floating bottom bar** (72dp, 16dp margin, pill, surfaceContainer ~72% + 24dp background blur, shadow)
+  floating over scrolling content. Blur: RenderEffect/Haze on API 31+, opaque ~92% fallback on API 26-30.
+  Content bottom padding >= 120dp; hidden with the keyboard and on child screens.
+- Selected indicator fills the whole selected slot (80x64dp pill, secondaryContainer).
+- Update-required screen: message centered vertically, primary action (full-width 56dp pill) at the bottom for one-handed use.
