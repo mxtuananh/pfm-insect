@@ -1,0 +1,21 @@
+# Local server build/runtime copy (contains generated secrets) - never commit
+.server/
+
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+
+# Secrets
+.env
+local.env
+.agents/

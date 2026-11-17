@@ -1,0 +1,1976 @@
+openapi: 3.1.1
+info:
+  title: Personal Finance Manager API
+  version: "1.0"
+  description: "Backend of a personal finance manager (spending tracker). The app\
+    \ is **offline-first**: it keeps its own copy\nof the data and uses this API to\
+    \ synchronize between devices and to receive budget alerts.\n\n## Versioning\n\
+    Every endpoint lives under **`/v1`** (for example `POST /v1/auth/login`); `GET\
+    \ /health` is the only exception. A\nbreaking change ships as `/v2` next to `/v1`;\
+    \ adding fields, endpoints or error codes is not breaking, so clients\nmust ignore\
+    \ JSON fields they do not know. Call `GET /health` at start-up: `minAppVersion`,\
+    \ when present, is the\noldest app version still supported.\n\n## Authentication\n\
+    1. `POST /v1/auth/register`, then `POST /v1/auth/login` with a `deviceId` the\
+    \ app generates once per installation\n   (letters, digits, `.`, `_`, `:`, `-`;\
+    \ at most 64 characters).\n2. Send `Authorization: Bearer <accessToken>` on every\
+    \ other request. The access token lives **15 minutes**.\n3. On `401`, call `POST\
+    \ /v1/auth/refresh` with the refresh token (valid 30 days) and retry. Each refresh\
+    \ returns\n   a **new** refresh token, so always store the newest one. The old\
+    \ one keeps working for 60 seconds so that a\n   refresh whose response was lost\
+    \ can simply be retried with the token you still have; after that it is rejected.\n\
+    4. Each device has one session; at most 10 devices can be signed in at the same\
+    \ time (the oldest is signed out).\n   `POST /v1/auth/logout` signs out one device,\
+    \ `POST /v1/auth/logout-all` all of them.\nAuth endpoints are limited to 10 requests\
+    \ per minute per IP (`429`).\n\n## Conventions\n* **Money** is a whole number\
+    \ in the smallest unit of the user's currency (`/v1/users/me` → `currency`): dong\
+    \ for\n  `VND`, cents for `USD`. Never a decimal.\n* **Dates** (`spentOn`, `startDate`,\
+    \ `from`, `to`, `date`) are `yyyy-MM-dd` in the **user's own calendar**; the\n\
+    \  server never converts time zones. The app sends its local \"today\" where a\
+    \ date is needed.\n* **Timestamps** (`updatedAt`, `createdAt`, `readAt`) are epoch\
+    \ milliseconds assigned by the server.\n* **Ids** of categories, expenses, habits\
+    \ and budgets are UUIDs **chosen by the client**; notification ids are\n  chosen\
+    \ by the server.\n* **Errors** are `{\"error\": \"<message>\", \"code\": \"<code>\"\
+    }` with the HTTP status. Branch on `code` (stable, safe to\n  translate); `error`\
+    \ is an English message for logs and may change. Codes: `validation_failed`, `invalid_request`,\n\
+    \  `malformed_request`, `invalid_cursor`, `unknown_category`, `too_many_habits`,\
+    \ `too_many_budgets` (400);\n  `unauthorized`, `invalid_credentials`, `invalid_refresh_token`\
+    \ (401); `user_not_found`, `notification_not_found`\n  (404); `email_taken`, `currency_locked`\
+    \ (409); `full_resync_required` (410); `rate_limited` (429);\n  `internal_error`\
+    \ (500); `service_unavailable` (503).\n* Unknown JSON fields are rejected with\
+    \ `400`.\n\n## Synchronization (categories, expenses, habits, budgets)\nEvery\
+    \ record has `version` (increases on each change) and `updatedAt` (server clock).\
+    \ The server never trusts\ndevice clocks, and the last write wins.\n* **Write**:\
+    \ `PUT /<resource>/{id}` creates or replaces the record. It is idempotent: repeating\
+    \ the same request\n  changes nothing, so it is safe to retry after a network\
+    \ error. `DELETE` is a soft delete and is idempotent too.\n* **Read**: list endpoints\
+    \ return the current data plus a `syncCursor`. Then call `GET /<resource>/changes?cursor=…\
+    `\n  repeatedly (`hasMore`, `nextCursor`) to receive everything created, changed\
+    \ or deleted (`deleted: true`) since.\n  Repeats are possible; merge by `id`.\
+    \ Keep the latest `nextCursor`.\n* **`410`, code `full_resync_required`**: the\
+    \ cursor is older than the server keeps deletion markers (90 days). Discard the\n\
+    \  local copy of that resource, reload it and start from a fresh `syncCursor`.\
+    \ Push unsynced local changes first.\n* **Push order**: when the app has been\
+    \ offline, push in this order: **categories first**, then expenses, habits and\n\
+    \  budgets. A record that uses a category the server does not know yet is rejected\
+    \ with `400 unknown_category`; push\n  the category and retry. Categories are\
+    \ never deleted (only archived), so there are no other ordering constraints.\n\
+    * Reports, budget progress and alerts only reflect data already synchronized to\
+    \ the server.\n\n## Notifications\nBudget alerts are created by the server when\
+    \ an expense pushes a budget over an alert threshold or over its\namount. Read\
+    \ them with `GET /v1/notifications` and `/v1/notifications/changes`, or receive\
+    \ them live on the Server-Sent\nEvents stream `GET /v1/notifications/stream`."
+servers:
+- url: http://localhost:8080
+  description: PFM server
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: 'Public and not versioned. Returns the server version and, when
+        set, the oldest app version still supported (`minAppVersion`): an older app
+        should ask the user to update. Answers `503` when the database cannot be reached.'
+      responses:
+        "200":
+          description: The server and its database are up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: The server is up but cannot reach its database.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/auth/register:
+    post:
+      summary: Register user
+      description: Creates an account. The email is trimmed and lowercased; the password
+        needs at least 8 characters with a lowercase letter, an uppercase letter and
+        a digit (at most 72 bytes). The account starts with the default categories,
+        time zone `Asia/Ho_Chi_Minh` and currency `VND`. Sign in afterwards with `POST
+        /v1/auth/login`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Account created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: The email or the password is invalid (the message says which).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: An account with this email already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 'Rate limit exceeded: at most 10 requests per minute per IP
+            address.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/auth/login:
+    post:
+      summary: Login
+      description: Log in with email and password from a device (deviceId); returns
+        a short-lived access token and a refresh token. Logging in again from the
+        same device replaces its previous session. A wrong password and an unknown
+        email give the same answer.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Access token (valid 15 minutes) and refresh token (valid 30
+            days).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: The body is malformed or `deviceId` is not 1-64 characters
+            of letters, digits, `.`, `_`, `:`, `-`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Wrong email or password.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 'Rate limit exceeded: at most 10 requests per minute per IP
+            address.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/auth/refresh:
+    post:
+      summary: Refresh tokens
+      description: Exchanges a refresh token for a new access/refresh token pair.
+        The refresh token that was sent stops working, so always store the new one;
+        the session stays on the same device.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: New access token and a new refresh token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: The body is malformed or `refreshToken` is empty.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: 'The refresh token is unknown, already used, expired or signed
+            out: sign in again.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 'Rate limit exceeded: at most 10 requests per minute per IP
+            address.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/auth/logout:
+    post:
+      summary: Logout
+      description: Signs out the current device by revoking its refresh token. Always
+        succeeds, even if the token is unknown. The access token already issued stays
+        valid until it expires (15 minutes).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "204":
+          description: Signed out (or the token was already invalid).
+        "400":
+          description: The body is malformed or `refreshToken` is empty.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: 'Rate limit exceeded: at most 10 requests per minute per IP
+            address.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/auth/logout-all:
+    post:
+      summary: Logout from all devices
+      description: Revokes every refresh token of the authenticated user, signing
+        out all devices. Access tokens already issued stay valid until they expire
+        (15 minutes).
+      responses:
+        "204":
+          description: All devices signed out.
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/users/me:
+    put:
+      summary: Update current user
+      description: Updates the display name (1-50 characters) and optionally the time
+        zone and currency. Email and profile picture cannot be changed here. The currency
+        is locked while the user has expenses, habits or budgets. Sending the values
+        the profile already has changes nothing.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: The updated profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "400":
+          description: '`name` is missing or invalid, `timezone` is not an IANA zone
+            id, `currency` is not an ISO 4217 code, or the body contains unsupported
+            fields (such as `email` or `pfp`).'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: The access token is valid but the account no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The currency cannot change while the user has expenses, habits
+            or budgets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+    get:
+      summary: Get current user
+      description: Returns the profile of the authenticated user, including the `timezone`
+        and `currency` that give meaning to dates and amounts. `pfp` is the URL of
+        the profile picture, or null.
+      responses:
+        "200":
+          description: The current user's profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: The access token is valid but the account no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/categories:
+    get:
+      summary: List categories
+      description: All categories of the user, archived ones included, plus `syncCursor`
+        to start reading `/categories/changes` from. New users get the default categories.
+      responses:
+        "200":
+          description: All categories (a new user starts with 10 defaults) and the
+            cursor to continue from.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryListResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/categories/changes:
+    get:
+      summary: Category changes
+      description: 'Categories created or changed after `cursor`. Categories are never
+        deleted, only archived. Repeats are possible and harmless: merge by `id`.
+        Keep calling with `nextCursor` while `hasMore` is true, and store the last
+        `nextCursor` for next time.'
+      parameters:
+      - name: cursor
+        in: query
+        description: 'Where to continue: the `syncCursor` of a list response or the
+          `nextCursor` of the previous page.'
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum number of items to return, 1 to 200 (default 50).
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Changes after the cursor, oldest change first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryChangesResponse"
+        "400":
+          description: '`cursor` is missing or malformed, or `limit` is invalid.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: 'The cursor is older than the server keeps deletion markers.
+            `code` is `full_resync_required`: reload the data and continue from a
+            fresh `syncCursor`.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/categories/{id}:
+    put:
+      summary: Create or update a category
+      description: Creates the category with the client-chosen id, or replaces its
+        fields (last write wins). Set `archived` to hide it; categories are never
+        deleted.
+      parameters:
+      - name: id
+        in: path
+        description: 'Category id: a UUID chosen by the client.'
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertCategoryRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryResponse"
+        "200":
+          description: 'Replaced (or already identical: nothing changed).'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryResponse"
+        "400":
+          description: A field is invalid or missing (name 1-50 characters, icon,
+            `#RRGGBB` color) or `id` is not a UUID.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/expenses:
+    get:
+      summary: Expense history
+      description: Not-deleted expenses, newest first (for the same day, the most
+        recently added first). Use it to load the latest expenses and to browse older
+        ones; `syncCursor` is where to start reading `/expenses/changes` from afterwards.
+      parameters:
+      - name: from
+        in: query
+        description: First day to include (inclusive). Format `yyyy-MM-dd`.
+        schema:
+          type: string
+      - name: to
+        in: query
+        description: Last day to include (inclusive). Format `yyyy-MM-dd`.
+        schema:
+          type: string
+      - name: categoryId
+        in: query
+        description: Only expenses of this category.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum number of items to return, 1 to 200 (default 50).
+        schema:
+          type: integer
+      - name: before
+        in: query
+        description: 'Cursor of the next (older) page: the `nextCursor` of the previous
+          response.'
+        schema:
+          type: string
+      responses:
+        "200":
+          description: A page of expenses, newest first. `nextCursor` is null on the
+            last page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpensePageResponse"
+        "400":
+          description: A date, `categoryId`, `limit` or `before` is malformed, or
+            `from` is after `to`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/expenses/changes:
+    get:
+      summary: Expense changes
+      description: 'Expenses created, changed or deleted (`deleted: true`) after `cursor`.
+        Repeats are possible and harmless: merge by `id`. Keep calling with `nextCursor`
+        while `hasMore` is true, and store the last `nextCursor` for next time.'
+      parameters:
+      - name: cursor
+        in: query
+        description: 'Where to continue: the `syncCursor` of a list response or the
+          `nextCursor` of the previous page.'
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum number of items to return, 1 to 200 (default 50).
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Changes after the cursor, oldest change first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseChangesResponse"
+        "400":
+          description: '`cursor` is missing or malformed, or `limit` is invalid.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: 'The cursor is older than the server keeps deletion markers.
+            `code` is `full_resync_required`: reload the data and continue from a
+            fresh `syncCursor`.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/expenses/{id}:
+    put:
+      summary: Create or update an expense
+      description: Creates the expense with the client-chosen id, or replaces its
+        fields (last write wins). Repeating the same request is safe.
+      parameters:
+      - name: id
+        in: path
+        description: 'Expense id: a UUID chosen by the client.'
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertExpenseRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseResponse"
+        "200":
+          description: 'Replaced (or already identical: nothing changed).'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseResponse"
+        "400":
+          description: A field is invalid or missing, `id` is not a UUID, or `categoryId`
+            is unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+    delete:
+      summary: Delete an expense
+      description: Deletes the expense; devices learn about it through `/expenses/changes`.
+        Always succeeds, even if the expense does not exist or is already deleted.
+      parameters:
+      - name: id
+        in: path
+        description: Expense id.
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Deleted (or there was nothing to delete).
+        "400":
+          description: '`id` is not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/reports/summary:
+    get:
+      summary: Spending per day, month or year
+      description: Totals of the user's expenses between `from` and `to` (yyyy-MM-dd,
+        inclusive), grouped by `groupBy` = day | month (default) | year, optionally
+        for one `categoryId`. Only synced expenses count. Periods without expenses
+        are omitted. The range may span at most 366 days for `day`, 3,660 days for
+        `month` and 36,600 days for `year`.
+      parameters:
+      - name: from
+        in: query
+        description: First day to include (inclusive). Format `yyyy-MM-dd`.
+        required: true
+        schema:
+          type: string
+      - name: to
+        in: query
+        description: Last day to include (inclusive). Format `yyyy-MM-dd`.
+        required: true
+        schema:
+          type: string
+      - name: groupBy
+        in: query
+        description: 'How to group the totals: `day`, `month` (default) or `year`.'
+        schema:
+          type: string
+      - name: categoryId
+        in: query
+        description: Only count expenses of this category.
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Totals per period, oldest first, in the user's currency.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SummaryResponse"
+        "400":
+          description: A parameter is missing or invalid, `from` is after `to`, or
+            the range is too long.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/reports/by-category:
+    get:
+      summary: Spending per category
+      description: Totals per category between `from` and `to` (yyyy-MM-dd, inclusive),
+        largest first. Expenses without a category are grouped under a null `categoryId`.
+        Only synced expenses count. The range may span at most 36,600 days.
+      parameters:
+      - name: from
+        in: query
+        description: First day to include (inclusive). Format `yyyy-MM-dd`.
+        required: true
+        schema:
+          type: string
+      - name: to
+        in: query
+        description: Last day to include (inclusive). Format `yyyy-MM-dd`.
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Totals per category, largest first, in the user's currency.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ByCategoryResponse"
+        "400":
+          description: A date is missing or invalid, `from` is after `to`, or the
+            range is too long.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/habits:
+    get:
+      summary: List habits
+      description: 'All not-deleted habits in display order, plus `syncCursor` to
+        start reading `/habits/changes` from. A habit is only a template: the app
+        copies its title, note, amount and category into a new expense; the server
+        keeps no link between a habit and expenses.'
+      responses:
+        "200":
+          description: The user's habits in display order and the cursor to continue
+            from.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HabitListResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/habits/changes:
+    get:
+      summary: Habit changes
+      description: 'Habits created, changed or deleted (`deleted: true`) after `cursor`.
+        Repeats are possible and harmless: merge by `id`. Keep calling with `nextCursor`
+        while `hasMore` is true, and store the last `nextCursor` for next time.'
+      parameters:
+      - name: cursor
+        in: query
+        description: 'Where to continue: the `syncCursor` of a list response or the
+          `nextCursor` of the previous page.'
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum number of items to return, 1 to 200 (default 50).
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Changes after the cursor, oldest change first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HabitChangesResponse"
+        "400":
+          description: '`cursor` is missing or malformed, or `limit` is invalid.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: 'The cursor is older than the server keeps deletion markers.
+            `code` is `full_resync_required`: reload the data and continue from a
+            fresh `syncCursor`.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/habits/{id}:
+    put:
+      summary: Create or update a habit
+      description: 'Creates the habit with the client-chosen id, or replaces its fields
+        (last write wins). A habit is only a template: the app copies it into expenses.
+        Repeating the same request is safe.'
+      parameters:
+      - name: id
+        in: path
+        description: 'Habit id: a UUID chosen by the client.'
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertHabitRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HabitResponse"
+        "200":
+          description: 'Replaced (or already identical: nothing changed).'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HabitResponse"
+        "400":
+          description: A field is invalid or missing, `id` is not a UUID, `categoryId`
+            is unknown, or the user already has the maximum of 200 habits.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+    delete:
+      summary: Delete a habit
+      description: Deletes the habit; devices learn about it through `/habits/changes`.
+        Always succeeds, even if the habit does not exist or is already deleted.
+      parameters:
+      - name: id
+        in: path
+        description: Habit id.
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Deleted (or there was nothing to delete).
+        "400":
+          description: '`id` is not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/budgets:
+    get:
+      summary: List budgets
+      description: All not-deleted budgets, plus `syncCursor` to start reading `/budgets/changes`
+        from.
+      responses:
+        "200":
+          description: The user's budgets and the cursor to continue from.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetListResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/budgets/changes:
+    get:
+      summary: Budget changes
+      description: 'Budgets created, changed or deleted (`deleted: true`) after `cursor`.
+        Repeats are possible and harmless: merge by `id`. Keep calling with `nextCursor`
+        while `hasMore` is true, and store the last `nextCursor` for next time.'
+      parameters:
+      - name: cursor
+        in: query
+        description: 'Where to continue: the `syncCursor` of a list response or the
+          `nextCursor` of the previous page.'
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum number of items to return, 1 to 200 (default 50).
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Changes after the cursor, oldest change first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetChangesResponse"
+        "400":
+          description: '`cursor` is missing or malformed, or `limit` is invalid.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: 'The cursor is older than the server keeps deletion markers.
+            `code` is `full_resync_required`: reload the data and continue from a
+            fresh `syncCursor`.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/budgets/progress:
+    get:
+      summary: Budget progress
+      description: 'For every budget that applies to the period containing `date`
+        (the user''s local date, yyyy-MM-dd): spent, remaining, percent used, status
+        and the alert thresholds reached, plus what the habits plan to spend over
+        the period. Only expenses already synced to the server are counted. `status`
+        is `exceeded` only when more than the amount was spent; spending exactly the
+        amount reaches the 100% threshold but is still `warning`.'
+      parameters:
+      - name: date
+        in: query
+        description: The user's local date; the budgets are evaluated for the period
+          containing it. Format `yyyy-MM-dd`.
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: One entry per budget that applies to the period (empty if none).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetProgressListResponse"
+        "400":
+          description: '`date` is missing or not a valid `yyyy-MM-dd` date.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/budgets/{id}:
+    put:
+      summary: Create or update a budget
+      description: Creates the budget with the client-chosen id, or replaces its fields
+        (last write wins). A recurring budget (default) repeats every day/month/year
+        from the period containing `startDate`, until `endDate` if given; a non-recurring
+        one covers only that period. Repeating the same request is safe.
+      parameters:
+      - name: id
+        in: path
+        description: 'Budget id: a UUID chosen by the client.'
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertBudgetRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetResponse"
+        "200":
+          description: 'Replaced (or already identical: nothing changed).'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetResponse"
+        "400":
+          description: A field is invalid or missing, `id` is not a UUID, `categoryId`
+            is unknown, or the user already has the maximum of 100 budgets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+    delete:
+      summary: Delete a budget
+      description: Deletes the budget; devices learn about it through `/budgets/changes`.
+        Always succeeds, even if the budget does not exist or is already deleted.
+      parameters:
+      - name: id
+        in: path
+        description: Budget id.
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Deleted (or there was nothing to delete).
+        "400":
+          description: '`id` is not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/notifications:
+    get:
+      summary: Notifications
+      description: Budget alerts, newest first; `unread=true` for the unread ones
+        only. `unreadCount` counts all unread alerts, not just the ones on this page.
+        `syncCursor` is where to start reading `/notifications/changes` from.
+      parameters:
+      - name: unread
+        in: query
+        description: '`true` to list only unread notifications (default `false`).'
+        schema:
+          type: boolean
+      - name: limit
+        in: query
+        description: Maximum number of items to return, 1 to 200 (default 50).
+        schema:
+          type: integer
+      - name: before
+        in: query
+        description: 'Cursor of the next (older) page: the `nextCursor` of the previous
+          response.'
+        schema:
+          type: string
+      responses:
+        "200":
+          description: A page of notifications, newest first. `nextCursor` is null
+            on the last page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPageResponse"
+        "400":
+          description: '`unread`, `limit` or `before` is invalid.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/notifications/changes:
+    get:
+      summary: Notification changes
+      description: 'Notifications created or read after `cursor`; use it to catch
+        up after being offline or disconnected from the stream, and to learn about
+        alerts read on another device. Repeats are possible and harmless: merge by
+        `id`. Keep calling with `nextCursor` while `hasMore` is true, and store the
+        last `nextCursor` for next time.'
+      parameters:
+      - name: cursor
+        in: query
+        description: 'Where to continue: the `syncCursor` of a list response or the
+          `nextCursor` of the previous page.'
+        required: true
+        schema:
+          type: string
+      - name: limit
+        in: query
+        description: Maximum number of items to return, 1 to 200 (default 50).
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Changes after the cursor, oldest change first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationChangesResponse"
+        "400":
+          description: '`cursor` is missing or malformed, or `limit` is invalid.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: 'The cursor is older than the server keeps deletion markers.
+            `code` is `full_resync_required`: reload the data and continue from a
+            fresh `syncCursor`.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/notifications/stream:
+    get:
+      summary: Live notifications (Server-Sent Events)
+      description: 'Streams new alerts for the user while the connection is open.
+        Send the usual `Authorization: Bearer` header and `Accept: text/event-stream`.
+        The server first sends an event named `ready` (data `ok`) once it is subscribed:
+        alerts created after it are not missed. Then it sends an event named `notification`
+        whose `data` is one JSON `NotificationResponse` and whose `id` is the notification
+        id. A comment line is sent every 20 seconds to keep the connection alive.
+        Events are not replayed: after reconnecting, call `GET /notifications/changes`
+        to catch up. The access token is checked only when the stream opens.'
+      responses:
+        "200":
+          description: An endless `text/event-stream`.
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/NotificationResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/notifications/read-all:
+    post:
+      summary: Mark all notifications read
+      description: Marks every unread notification read and returns how many there
+        were.
+      responses:
+        "200":
+          description: How many notifications were marked read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadAllResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+  /v1/notifications/{id}/read:
+    put:
+      summary: Mark a notification read
+      description: Marks the notification read. Repeating it is safe.
+      parameters:
+      - name: id
+        in: path
+        description: Notification id (chosen by the server).
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: The notification, now read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationResponse"
+        "400":
+          description: '`id` is not a UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing, invalid or expired access token. Refresh it with `POST
+            /v1/auth/refresh` and retry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: The user has no notification with this id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - auth-jwt: []
+webhooks: {}
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      title: HealthResponse
+      required:
+      - status
+      - version
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        minAppVersion:
+          type:
+          - string
+          - "null"
+    ErrorResponse:
+      type: object
+      title: ErrorResponse
+      required:
+      - error
+      - code
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+    RegisterRequest:
+      type: object
+      title: RegisterRequest
+      required:
+      - email
+      - password
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+    MessageResponse:
+      type: object
+      title: MessageResponse
+      required:
+      - message
+      properties:
+        message:
+          type: string
+    LoginRequest:
+      type: object
+      title: LoginRequest
+      required:
+      - email
+      - password
+      - deviceId
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        deviceId:
+          type: string
+    LoginResponse:
+      type: object
+      title: LoginResponse
+      required:
+      - accessToken
+      - refreshToken
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+    RefreshRequest:
+      type: object
+      title: RefreshRequest
+      required:
+      - refreshToken
+      properties:
+        refreshToken:
+          type: string
+    UserProfileResponse:
+      type: object
+      title: UserProfileResponse
+      required:
+      - id
+      - email
+      - name
+      - timezone
+      - currency
+      - version
+      - updatedAt
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        pfp:
+          type:
+          - string
+          - "null"
+        timezone:
+          type: string
+        currency:
+          type: string
+        version:
+          type: integer
+        updatedAt:
+          type: integer
+    UpdateProfileRequest:
+      type: object
+      title: UpdateProfileRequest
+      properties:
+        name:
+          type:
+          - string
+          - "null"
+        timezone:
+          type:
+          - string
+          - "null"
+        currency:
+          type:
+          - string
+          - "null"
+    CategoryResponse:
+      type: object
+      title: CategoryResponse
+      required:
+      - id
+      - name
+      - archived
+      - version
+      - updatedAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type:
+          - string
+          - "null"
+        color:
+          type:
+          - string
+          - "null"
+        archived:
+          type: boolean
+        version:
+          type: integer
+        updatedAt:
+          type: integer
+    CategoryListResponse:
+      type: object
+      title: CategoryListResponse
+      required:
+      - items
+      - syncCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryResponse"
+        syncCursor:
+          type: string
+    CategoryChangesResponse:
+      type: object
+      title: CategoryChangesResponse
+      required:
+      - items
+      - nextCursor
+      - hasMore
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryResponse"
+        nextCursor:
+          type: string
+        hasMore:
+          type: boolean
+    UpsertCategoryRequest:
+      type: object
+      title: UpsertCategoryRequest
+      properties:
+        name:
+          type:
+          - string
+          - "null"
+        icon:
+          type:
+          - string
+          - "null"
+        color:
+          type:
+          - string
+          - "null"
+        archived:
+          type: boolean
+    ExpenseResponse:
+      type: object
+      title: ExpenseResponse
+      required:
+      - id
+      - title
+      - amount
+      - spentOn
+      - version
+      - updatedAt
+      - deleted
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        note:
+          type:
+          - string
+          - "null"
+        amount:
+          type: integer
+        spentOn:
+          type: string
+        categoryId:
+          type:
+          - string
+          - "null"
+        version:
+          type: integer
+        updatedAt:
+          type: integer
+        deleted:
+          type: boolean
+    ExpensePageResponse:
+      type: object
+      title: ExpensePageResponse
+      required:
+      - items
+      - syncCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpenseResponse"
+        nextCursor:
+          type:
+          - string
+          - "null"
+        syncCursor:
+          type: string
+    ExpenseChangesResponse:
+      type: object
+      title: ExpenseChangesResponse
+      required:
+      - items
+      - nextCursor
+      - hasMore
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpenseResponse"
+        nextCursor:
+          type: string
+        hasMore:
+          type: boolean
+    UpsertExpenseRequest:
+      type: object
+      title: UpsertExpenseRequest
+      properties:
+        title:
+          type:
+          - string
+          - "null"
+        note:
+          type:
+          - string
+          - "null"
+        amount:
+          type:
+          - integer
+          - "null"
+        spentOn:
+          type:
+          - string
+          - "null"
+        categoryId:
+          type:
+          - string
+          - "null"
+    PeriodTotalResponse:
+      type: object
+      title: PeriodTotalResponse
+      required:
+      - period
+      - total
+      - count
+      properties:
+        period:
+          type: string
+        total:
+          type: integer
+        count:
+          type: integer
+    SummaryResponse:
+      type: object
+      title: SummaryResponse
+      required:
+      - currency
+      - groupBy
+      - from
+      - to
+      - items
+      properties:
+        currency:
+          type: string
+        groupBy:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PeriodTotalResponse"
+    CategoryTotalResponse:
+      type: object
+      title: CategoryTotalResponse
+      required:
+      - total
+      - count
+      properties:
+        categoryId:
+          type:
+          - string
+          - "null"
+        total:
+          type: integer
+        count:
+          type: integer
+    ByCategoryResponse:
+      type: object
+      title: ByCategoryResponse
+      required:
+      - currency
+      - from
+      - to
+      - total
+      - items
+      properties:
+        currency:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryTotalResponse"
+    HabitResponse:
+      type: object
+      title: HabitResponse
+      required:
+      - id
+      - title
+      - amount
+      - daysOfWeek
+      - sortOrder
+      - version
+      - updatedAt
+      - deleted
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        note:
+          type:
+          - string
+          - "null"
+        amount:
+          type: integer
+        categoryId:
+          type:
+          - string
+          - "null"
+        daysOfWeek:
+          type: array
+          items:
+            type: integer
+        timeOfDay:
+          type:
+          - string
+          - "null"
+        sortOrder:
+          type: integer
+        version:
+          type: integer
+        updatedAt:
+          type: integer
+        deleted:
+          type: boolean
+    HabitListResponse:
+      type: object
+      title: HabitListResponse
+      required:
+      - items
+      - syncCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/HabitResponse"
+        syncCursor:
+          type: string
+    HabitChangesResponse:
+      type: object
+      title: HabitChangesResponse
+      required:
+      - items
+      - nextCursor
+      - hasMore
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/HabitResponse"
+        nextCursor:
+          type: string
+        hasMore:
+          type: boolean
+    UpsertHabitRequest:
+      type: object
+      title: UpsertHabitRequest
+      properties:
+        title:
+          type:
+          - string
+          - "null"
+        note:
+          type:
+          - string
+          - "null"
+        amount:
+          type:
+          - integer
+          - "null"
+        categoryId:
+          type:
+          - string
+          - "null"
+        daysOfWeek:
+          type:
+          - array
+          - "null"
+          items:
+            type: integer
+        timeOfDay:
+          type:
+          - string
+          - "null"
+        sortOrder:
+          type: integer
+    BudgetResponse:
+      type: object
+      title: BudgetResponse
+      required:
+      - id
+      - period
+      - amount
+      - startDate
+      - recurring
+      - alertThresholds
+      - version
+      - updatedAt
+      - deleted
+      properties:
+        id:
+          type: string
+        categoryId:
+          type:
+          - string
+          - "null"
+        period:
+          type: string
+        amount:
+          type: integer
+        startDate:
+          type: string
+        endDate:
+          type:
+          - string
+          - "null"
+        recurring:
+          type: boolean
+        alertThresholds:
+          type: array
+          items:
+            type: integer
+        version:
+          type: integer
+        updatedAt:
+          type: integer
+        deleted:
+          type: boolean
+    BudgetListResponse:
+      type: object
+      title: BudgetListResponse
+      required:
+      - items
+      - syncCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetResponse"
+        syncCursor:
+          type: string
+    BudgetChangesResponse:
+      type: object
+      title: BudgetChangesResponse
+      required:
+      - items
+      - nextCursor
+      - hasMore
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetResponse"
+        nextCursor:
+          type: string
+        hasMore:
+          type: boolean
+    BudgetProgressResponse:
+      type: object
+      title: BudgetProgressResponse
+      required:
+      - budgetId
+      - period
+      - amount
+      - periodStart
+      - periodEnd
+      - spent
+      - remaining
+      - percentUsed
+      - status
+      - reachedThresholds
+      - plannedByHabits
+      properties:
+        budgetId:
+          type: string
+        categoryId:
+          type:
+          - string
+          - "null"
+        period:
+          type: string
+        amount:
+          type: integer
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        spent:
+          type: integer
+        remaining:
+          type: integer
+        percentUsed:
+          type: integer
+        status:
+          type: string
+        reachedThresholds:
+          type: array
+          items:
+            type: integer
+        plannedByHabits:
+          type: integer
+    BudgetProgressListResponse:
+      type: object
+      title: BudgetProgressListResponse
+      required:
+      - currency
+      - date
+      - items
+      properties:
+        currency:
+          type: string
+        date:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetProgressResponse"
+    UpsertBudgetRequest:
+      type: object
+      title: UpsertBudgetRequest
+      properties:
+        categoryId:
+          type:
+          - string
+          - "null"
+        period:
+          type:
+          - string
+          - "null"
+        amount:
+          type:
+          - integer
+          - "null"
+        startDate:
+          type:
+          - string
+          - "null"
+        endDate:
+          type:
+          - string
+          - "null"
+        recurring:
+          type: boolean
+        alertThresholds:
+          type:
+          - array
+          - "null"
+          items:
+            type: integer
+    NotificationResponse:
+      type: object
+      title: NotificationResponse
+      required:
+      - id
+      - kind
+      - budgetId
+      - period
+      - periodStart
+      - periodEnd
+      - amount
+      - spent
+      - percentUsed
+      - createdAt
+      - read
+      - version
+      - updatedAt
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+        threshold:
+          type:
+          - integer
+          - "null"
+        budgetId:
+          type: string
+        categoryId:
+          type:
+          - string
+          - "null"
+        period:
+          type: string
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        amount:
+          type: integer
+        spent:
+          type: integer
+        percentUsed:
+          type: integer
+        createdAt:
+          type: integer
+        read:
+          type: boolean
+        readAt:
+          type:
+          - integer
+          - "null"
+        version:
+          type: integer
+        updatedAt:
+          type: integer
+    NotificationPageResponse:
+      type: object
+      title: NotificationPageResponse
+      required:
+      - items
+      - syncCursor
+      - unreadCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationResponse"
+        nextCursor:
+          type:
+          - string
+          - "null"
+        syncCursor:
+          type: string
+        unreadCount:
+          type: integer
+    NotificationChangesResponse:
+      type: object
+      title: NotificationChangesResponse
+      required:
+      - items
+      - nextCursor
+      - hasMore
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationResponse"
+        nextCursor:
+          type: string
+        hasMore:
+          type: boolean
+    ReadAllResponse:
+      type: object
+      title: ReadAllResponse
+      required:
+      - updated
+      properties:
+        updated:
+          type: integer
+  securitySchemes:
+    auth-jwt:
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer Authentication
+      type: http
