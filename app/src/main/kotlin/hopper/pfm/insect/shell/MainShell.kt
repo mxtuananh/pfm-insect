@@ -43,6 +43,7 @@ import hopper.pfm.insect.feature.auth.ProfileLinks
 import hopper.pfm.insect.feature.budget.BudgetListScreen
 import hopper.pfm.insect.feature.auth.ProfileScreen
 import hopper.pfm.insect.feature.expense.ExpenseListScreen
+import hopper.pfm.insect.feature.report.ReportScreen
 
 /**
  * Main shell: four tabs, a top bar with sync status and notifications, and the floating bottom bar over the content.
@@ -57,6 +58,7 @@ fun MainShell(
     onHabits: () -> Unit,
     onAddBudget: () -> Unit,
     onEditBudget: (String) -> Unit,
+    onReportCategory: (String?, String, String) -> Unit,
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val hazeState = rememberHazeState()
@@ -95,6 +97,12 @@ fun MainShell(
                 BudgetListScreen(
                     onAdd = onAddBudget,
                     onEdit = onEditBudget,
+                    bottomBarSpace = floatingBarSpace(),
+                    modifier = Modifier.weight(1f),
+                )
+            } else if (selected == 2) {
+                ReportScreen(
+                    onCategory = onReportCategory,
                     bottomBarSpace = floatingBarSpace(),
                     modifier = Modifier.weight(1f),
                 )

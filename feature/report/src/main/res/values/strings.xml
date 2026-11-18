@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">Reports</string>
+    <string name="report_kind_month">Month</string>
+    <string name="report_kind_year">Year</string>
+    <string name="report_kind_custom">Custom</string>
+    <string name="report_previous">Previous</string>
+    <string name="report_next">Next</string>
+    <string name="report_month_label">Month %1$s</string>
+    <string name="report_year_label">Year %1$d</string>
+    <string name="report_total">Total spent</string>
+    <string name="report_delta_up">↑ %1$d%% vs previous %2$s</string>
+    <string name="report_delta_down">↓ %1$d%% vs previous %2$s</string>
+    <string name="report_delta_same">Same as previous %1$s</string>
+    <string name="report_unit_month">month</string>
+    <string name="report_unit_year">year</string>
+    <string name="report_unit_period">period</string>
+    <string name="report_count">Expenses</string>
+    <string name="report_avg_day">Per day</string>
+    <string name="report_avg_month">Per month</string>
+    <string name="report_peak_day">Busiest day</string>
+    <string name="report_peak_week">Busiest week</string>
+    <string name="report_peak_month">Busiest month</string>
+    <string name="report_none">—</string>
+    <string name="report_days_count">%1$d days · %2$d expenses</string>
+    <string name="report_trend_day">Spending by day</string>
+    <string name="report_trend_week">Spending by week</string>
+    <string name="report_trend_month">Spending by month</string>
+    <string name="report_by_category">By category</string>
+    <string name="report_category_row">%1$d%% · %2$d expenses</string>
+    <string name="report_other">Other</string>
+    <string name="report_other_merged">Other (%1$d categories)</string>
+    <string name="report_from">From</string>
+    <string name="report_to">To</string>
+    <string name="report_error_from_after_to">The start date is after the end date</string>
+    <string name="report_error_too_long">The range can be at most 5 years</string>
+    <string name="report_empty_title">No expenses in this period</string>
+    <string name="report_empty_body">Add an expense and it will show up here</string>
+    <string name="report_ok">OK</string>
+    <string name="report_cancel">Cancel</string>
+    <string name="report_detail_summary">%1$d expenses · %2$d%% of the total</string>
+    <string name="report_back">Back</string>
+    <string name="report_today">Today</string>
+    <string name="report_yesterday">Yesterday</string>
+</resources>

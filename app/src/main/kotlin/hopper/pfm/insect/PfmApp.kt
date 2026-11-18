@@ -24,6 +24,7 @@ import hopper.pfm.insect.feature.category.CategoryEditScreen
 import hopper.pfm.insect.feature.category.CategoryListScreen
 import hopper.pfm.insect.feature.expense.ExpenseFormScreen
 import hopper.pfm.insect.feature.habit.HabitEditScreen
+import hopper.pfm.insect.feature.report.ReportCategoryScreen
 import hopper.pfm.insect.feature.habit.HabitListScreen
 import hopper.pfm.insect.shell.MainShell
 import hopper.pfm.insect.shell.SplashScreen
@@ -57,6 +58,9 @@ data class ExpenseFormKey(val expenseId: String? = null) : NavKey
 
 @Serializable
 data class BudgetEditKey(val budgetId: String? = null) : NavKey
+
+@Serializable
+data class ReportCategoryKey(val categoryId: String? = null, val from: String, val to: String) : NavKey
 
 @Serializable
 data object HabitsKey : NavKey
@@ -135,6 +139,7 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
                     onHabits = { backStack.add(HabitsKey) },
                     onAddBudget = { backStack.add(BudgetEditKey()) },
                     onEditBudget = { backStack.add(BudgetEditKey(it)) },
+                    onReportCategory = { id, from, to -> backStack.add(ReportCategoryKey(id, from, to)) },
                 )
             }
             entry<ExpenseFormKey> { key ->
@@ -147,6 +152,15 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
             }
             entry<BudgetEditKey> { key ->
                 BudgetEditScreen(budgetId = key.budgetId, onBack = { backStack.removeAt(backStack.lastIndex) })
+            }
+            entry<ReportCategoryKey> { key ->
+                ReportCategoryScreen(
+                    categoryId = key.categoryId,
+                    from = key.from,
+                    to = key.to,
+                    onBack = { backStack.removeAt(backStack.lastIndex) },
+                    onEdit = { backStack.add(ExpenseFormKey(it)) },
+                )
             }
             entry<HabitsKey> {
                 HabitListScreen(

@@ -39,6 +39,7 @@ dependencies {
     implementation(project(":feature:expense"))
     implementation(project(":feature:habit"))
     implementation(project(":feature:budget"))
+    implementation(project(":feature:report"))
     implementation(project(":core:model"))
     implementation(project(":core:common"))
     implementation(project(":core:domain"))

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">Báo cáo</string>
+    <string name="report_kind_month">Tháng</string>
+    <string name="report_kind_year">Năm</string>
+    <string name="report_kind_custom">Tùy chọn</string>
+    <string name="report_previous">Kỳ trước</string>
+    <string name="report_next">Kỳ sau</string>
+    <string name="report_month_label">Tháng %1$s</string>
+    <string name="report_year_label">Năm %1$d</string>
+    <string name="report_total">Tổng chi</string>
+    <string name="report_delta_up">↑ %1$d%% so với %2$s trước</string>
+    <string name="report_delta_down">↓ %1$d%% so với %2$s trước</string>
+    <string name="report_delta_same">Bằng %1$s trước</string>
+    <string name="report_unit_month">tháng</string>
+    <string name="report_unit_year">năm</string>
+    <string name="report_unit_period">kỳ</string>
+    <string name="report_count">Số khoản</string>
+    <string name="report_avg_day">TB/ngày</string>
+    <string name="report_avg_month">TB/tháng</string>
+    <string name="report_peak_day">Ngày chi nhiều</string>
+    <string name="report_peak_week">Tuần chi nhiều</string>
+    <string name="report_peak_month">Tháng chi nhiều</string>
+    <string name="report_none">—</string>
+    <string name="report_days_count">%1$d ngày · %2$d khoản</string>
+    <string name="report_trend_day">Xu hướng theo ngày</string>
+    <string name="report_trend_week">Xu hướng theo tuần</string>
+    <string name="report_trend_month">Xu hướng theo tháng</string>
+    <string name="report_by_category">Theo danh mục</string>
+    <string name="report_category_row">%1$d%% · %2$d khoản</string>
+    <string name="report_other">Khác</string>
+    <string name="report_other_merged">Khác (%1$d danh mục)</string>
+    <string name="report_from">Từ ngày</string>
+    <string name="report_to">Đến ngày</string>
+    <string name="report_error_from_after_to">Ngày bắt đầu sau ngày kết thúc</string>
+    <string name="report_error_too_long">Khoảng tối đa 5 năm</string>
+    <string name="report_empty_title">Không có khoản chi trong kỳ này</string>
+    <string name="report_empty_body">Thêm khoản chi, chúng sẽ hiện ở đây</string>
+    <string name="report_ok">OK</string>
+    <string name="report_cancel">Hủy</string>
+    <string name="report_detail_summary">%1$d khoản · %2$d%% tổng chi</string>
+    <string name="report_back">Quay lại</string>
+    <string name="report_today">Hôm nay</string>
+    <string name="report_yesterday">Hôm qua</string>
+</resources>
