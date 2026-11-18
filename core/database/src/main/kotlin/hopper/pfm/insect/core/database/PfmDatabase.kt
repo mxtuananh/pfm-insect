@@ -1,6 +1,7 @@
 package hopper.pfm.insect.core.database
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -18,9 +19,11 @@ import javax.inject.Singleton
         HabitEntity::class,
         BudgetEntity::class,
         SyncCursorEntity::class,
+        NotificationEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 abstract class PfmDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
@@ -28,6 +31,7 @@ abstract class PfmDatabase : RoomDatabase() {
     abstract fun habitDao(): HabitDao
     abstract fun budgetDao(): BudgetDao
     abstract fun syncCursorDao(): SyncCursorDao
+    abstract fun notificationDao(): NotificationDao
 }
 
 @Module
@@ -43,4 +47,5 @@ object DatabaseModule {
     @Provides fun habitDao(db: PfmDatabase) = db.habitDao()
     @Provides fun budgetDao(db: PfmDatabase) = db.budgetDao()
     @Provides fun syncCursorDao(db: PfmDatabase) = db.syncCursorDao()
+    @Provides fun notificationDao(db: PfmDatabase) = db.notificationDao()
 }

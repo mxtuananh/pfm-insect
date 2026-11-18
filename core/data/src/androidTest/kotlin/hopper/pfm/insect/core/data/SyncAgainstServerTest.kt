@@ -10,6 +10,7 @@ import hopper.pfm.insect.core.data.sync.BudgetSyncAdapter
 import hopper.pfm.insect.core.data.sync.CategorySyncAdapter
 import hopper.pfm.insect.core.data.sync.ExpenseSyncAdapter
 import hopper.pfm.insect.core.data.sync.HabitSyncAdapter
+import hopper.pfm.insect.core.data.sync.NotificationSyncAdapter
 import hopper.pfm.insect.core.database.ExpenseEntity
 import hopper.pfm.insect.core.database.PfmDatabase
 import hopper.pfm.insect.core.domain.sync.ResourceSyncer
@@ -25,6 +26,7 @@ import hopper.pfm.insect.core.network.UpsertExpenseRequest
 import hopper.pfm.insect.core.network.createApiClient
 import hopper.pfm.insect.core.network.installBearerAuth
 import io.ktor.client.engine.okhttp.OkHttp
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -54,6 +56,8 @@ class SyncAgainstServerTest {
     private lateinit var engine: SyncEngine
     private lateinit var expenseApi: ExpenseApi
     private lateinit var categoryApi: CategoryApi
+    private lateinit var notificationApi: hopper.pfm.insect.core.network.NotificationApi
+    private lateinit var budgetApi: BudgetApi
 
     @Before fun setUp() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -67,12 +71,15 @@ class SyncAgainstServerTest {
         val client = createApiClient(OkHttp.create(), config) { installBearerAuth(tokens) }
         expenseApi = ExpenseApi(client)
         categoryApi = CategoryApi(client)
+        notificationApi = hopper.pfm.insect.core.network.NotificationApi(client)
+        budgetApi = BudgetApi(client)
         engine = SyncEngine(
             listOf(
                 ResourceSyncer(CategorySyncAdapter(db.categoryDao(), categoryApi, db.syncCursorDao(), db)),
                 ResourceSyncer(ExpenseSyncAdapter(db.expenseDao(), expenseApi, db.syncCursorDao(), db)),
                 ResourceSyncer(HabitSyncAdapter(db.habitDao(), HabitApi(client), db.syncCursorDao(), db)),
                 ResourceSyncer(BudgetSyncAdapter(db.budgetDao(), BudgetApi(client), db.syncCursorDao(), db)),
+                ResourceSyncer(NotificationSyncAdapter(db.notificationDao(), notificationApi, db.syncCursorDao(), db)),
             ),
         )
     }
@@ -163,6 +170,33 @@ class SyncAgainstServerTest {
         assertEquals(3_000_000L, pulled.amount)
         assertEquals("80,100", pulled.alertThresholds)
         assertEquals(null, pulled.endDate)
+    }
+
+    @Test fun budgetAlertsArriveAndTheReadStateIsSentBack() = runBlocking {
+        engine.run()
+        val category = (categoryApi.list() as Outcome.Success).value.items.first().id
+        // A budget of 1000 and an expense of 900 on the server side: the 80% threshold alert is created there.
+        budgetApi.put(
+            UUID.randomUUID().toString(),
+            hopper.pfm.insect.core.network.UpsertBudgetRequest(category, "month", 1_000, "2026-11-01", null, true, listOf(80, 100)),
+        )
+        expenseApi.put(UUID.randomUUID().toString(), UpsertExpenseRequest("Big", null, 900, java.time.LocalDate.now().toString(), category))
+        engine.run()
+        val alerts = db.notificationDao().observeAll().first()
+        assertEquals(1, alerts.size)
+        assertEquals("threshold", alerts.single().kind)
+        assertEquals(80, alerts.single().threshold)
+        assertFalse(alerts.single().read)
+        assertEquals(1, db.notificationDao().observeUnreadCount().first())
+
+        // Read it on the device (local first), then the sync sends it to the server.
+        db.notificationDao().markRead(alerts.single().id, System.currentTimeMillis())
+        assertEquals(0, db.notificationDao().observeUnreadCount().first())
+        assertTrue(engine.run().ok)
+        assertFalse(db.notificationDao().get(alerts.single().id)!!.dirty)
+        val onServer = (notificationApi.page(null) as Outcome.Success).value
+        assertEquals(0, onServer.unreadCount)
+        assertTrue(onServer.items.single().read)
     }
 
     @Test fun rejectedRecordIsMarkedAndDoesNotBlockOthers() = runBlocking {

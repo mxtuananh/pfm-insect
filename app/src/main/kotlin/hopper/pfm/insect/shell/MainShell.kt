@@ -59,6 +59,7 @@ fun MainShell(
     onAddBudget: () -> Unit,
     onEditBudget: (String) -> Unit,
     onReportCategory: (String?, String, String) -> Unit,
+    onOpenNotifications: () -> Unit,
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val hazeState = rememberHazeState()
@@ -82,9 +83,7 @@ fun MainShell(
                     modifier = Modifier.weight(1f),
                 )
                 SyncIndicator()
-                IconButton(onClick = {}) {
-                    Icon(Icons.Filled.Notifications, contentDescription = stringResource(R.string.notifications))
-                }
+                NotificationBell(onClick = onOpenNotifications)
             }
             if (selected == 0) {
                 ExpenseListScreen(

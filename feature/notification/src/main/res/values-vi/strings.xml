@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notif_title">Thông báo</string>
+    <string name="notif_read_all">Đọc tất cả</string>
+    <string name="notif_back">Quay lại</string>
+    <string name="notif_section_warning">ĐANG CẢNH BÁO</string>
+    <string name="notif_section_recent">GẦN ĐÂY</string>
+    <string name="notif_today">Hôm nay</string>
+    <string name="notif_yesterday">Hôm qua</string>
+    <string name="notif_unread">Chưa đọc</string>
+    <string name="notif_empty_title">Chưa có thông báo</string>
+    <string name="notif_empty_body">Bạn sẽ nhận cảnh báo khi chi tiêu chạm mốc hoặc vượt hạn mức đã đặt</string>
+    <string name="notif_offline">Ngoại tuyến — hiển thị thông báo đã lưu</string>
+    <string name="notif_permission_title">Bật thông báo hệ thống</string>
+    <string name="notif_permission_body">Để nhận cảnh báo sau lúc đồng bộ nền khi app đang đóng</string>
+    <string name="notif_permission_action">Bật</string>
+    <string name="notif_all_expenses">Tất cả chi tiêu</string>
+    <string name="notif_period_day">ngày</string>
+    <string name="notif_period_month">tháng</string>
+    <string name="notif_period_year">năm</string>
+    <string name="notif_title_threshold">%1$s đạt %2$d%% hạn mức %3$s</string>
+    <string name="notif_title_exceeded">%1$s đã vượt hạn mức %2$s</string>
+    <string name="notif_body">Đã chi %1$s / %2$s (%3$d%%)</string>
+    <string name="notif_local_exceeded">Đã chi %1$s / %2$s · vượt %3$d%%</string>
+    <string name="notif_local_warning">Đã chi %1$s / %2$s · %3$d%%</string>
+    <string name="notif_local_title">%1$s · %2$s</string>
+    <string name="notif_period_month_word">tháng</string>
+    <string name="notif_period_day_word">ngày</string>
+    <string name="notif_period_year_word">năm</string>
+    <string name="notif_channel_name">Cảnh báo hạn mức</string>
+    <string name="notif_channel_description">Cảnh báo khi chi tiêu chạm mốc hoặc vượt hạn mức</string>
+    <string name="notif_action_open">XEM HẠN MỨC</string>
+</resources>

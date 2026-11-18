@@ -221,3 +221,58 @@ private fun BudgetDto.toItem() = RemoteItem(
         recurring = recurring, alertThresholds = alertThresholds.joinToString(","), version = version,
     ),
 )
+
+/**
+ * Alerts are created by the server, so there is nothing to create here: the only local change is "read", pushed as
+ * PUT /v1/notifications/{id}/read. Pull works like the other resources (the cursor of /notifications/changes).
+ */
+internal class NotificationSyncAdapter(
+    private val dao: hopper.pfm.insect.core.database.NotificationDao,
+    private val api: hopper.pfm.insect.core.network.NotificationApi,
+    cursors: SyncCursorDao,
+    db: PfmDatabase,
+) : RoomSyncAdapter<hopper.pfm.insect.core.database.NotificationEntity>("notifications", dao, cursors, db) {
+
+    override suspend fun push(meta: LocalMeta): Outcome<Long> {
+        dao.get(meta.id) ?: return Outcome.Success(meta.version)
+        return api.markRead(meta.id).map { it.version }
+    }
+
+    override suspend fun removeLocal(id: String) = dao.remove(id)
+
+    override suspend fun upsertRemote(entity: hopper.pfm.insect.core.database.NotificationEntity) = dao.upsert(entity)
+
+    /** Newest first; the sync cursor of the FIRST page is the one to continue from. A few pages are enough for history. */
+    override suspend fun loadInitial(): Outcome<InitialLoad<hopper.pfm.insect.core.database.NotificationEntity>> {
+        val items = mutableListOf<RemoteItem<hopper.pfm.insect.core.database.NotificationEntity>>()
+        var before: String? = null
+        var syncCursor: String? = null
+        repeat(MAX_INITIAL_PAGES) {
+            when (val page = api.page(before)) {
+                is Outcome.Failure -> return page
+                is Outcome.Success -> {
+                    if (syncCursor == null) syncCursor = page.value.syncCursor
+                    items += page.value.items.map { it.toItem() }
+                    before = page.value.nextCursor ?: return Outcome.Success(InitialLoad(items, syncCursor!!))
+                }
+            }
+        }
+        return Outcome.Success(InitialLoad(items, syncCursor!!))
+    }
+
+    override suspend fun fetchChanges(cursor: String): Outcome<ChangesPage<hopper.pfm.insect.core.database.NotificationEntity>> =
+        api.changes(cursor).map { ChangesPage(it.items.map { dto -> dto.toItem() }, it.nextCursor, it.hasMore) }
+
+    private companion object {
+        const val MAX_INITIAL_PAGES = 5
+    }
+}
+
+private fun hopper.pfm.insect.core.network.NotificationDto.toItem() = RemoteItem(
+    id, version, deleted = false,
+    hopper.pfm.insect.core.database.NotificationEntity(
+        id = id, kind = kind, threshold = threshold, budgetId = budgetId, categoryId = categoryId, period = period,
+        periodStart = periodStart, periodEnd = periodEnd, amount = amount, spent = spent, percentUsed = percentUsed,
+        createdAt = createdAt, read = read, readAt = readAt, version = version,
+    ),
+)

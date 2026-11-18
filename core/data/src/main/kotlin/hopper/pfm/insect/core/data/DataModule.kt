@@ -12,6 +12,9 @@ import hopper.pfm.insect.core.domain.budget.BudgetRepository
 import hopper.pfm.insect.core.domain.expense.CategoryRepository
 import hopper.pfm.insect.core.domain.expense.ExpenseRepository
 import hopper.pfm.insect.core.domain.expense.UserSettings
+import hopper.pfm.insect.core.domain.notification.NotificationRepository
+import hopper.pfm.insect.core.data.sync.SyncCompletionListener
+import dagger.multibindings.Multibinds
 import hopper.pfm.insect.core.domain.habit.HabitRepository
 import hopper.pfm.insect.core.data.sync.SyncManager
 import hopper.pfm.insect.core.domain.sync.SyncRepository
@@ -58,4 +61,12 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindBudgetRepository(impl: BudgetRepositoryImpl): BudgetRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNotificationRepository(impl: NotificationRepositoryImpl): NotificationRepository
+
+    /** The app adds listeners (for example the system notification poster); the set may be empty. */
+    @Multibinds
+    abstract fun syncCompletionListeners(): Set<SyncCompletionListener>
 }

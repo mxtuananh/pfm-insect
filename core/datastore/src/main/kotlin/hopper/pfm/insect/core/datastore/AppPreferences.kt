@@ -48,7 +48,15 @@ class AppPreferences @Inject constructor(private val store: DataStore<Preference
         store.edit { it[WEEK_START] = isoDay }
     }
 
+    /** Server timestamp of the newest alert for which a system notification was already posted (0 = never set). */
+    suspend fun lastNotifiedAlertAt(): Long = store.data.first()[LAST_NOTIFIED] ?.toLongOrNull() ?: 0L
+
+    suspend fun setLastNotifiedAlertAt(value: Long) {
+        store.edit { it[LAST_NOTIFIED] = value.toString() }
+    }
+
     private companion object {
+        val LAST_NOTIFIED = stringPreferencesKey("last_notified_alert_at")
         val DEVICE_ID = stringPreferencesKey("device_id")
         val WEEK_START = intPreferencesKey("week_start_day")
     }

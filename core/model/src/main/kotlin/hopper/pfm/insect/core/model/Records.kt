@@ -52,3 +52,27 @@ data class Budget(
     val alertThresholds: List<Int>,
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
 )
+
+enum class AlertKind { THRESHOLD, EXCEEDED }
+
+/**
+ * A budget alert created by the server. It is structured on purpose: the app writes the sentence in the language of the
+ * user from these fields.
+ */
+data class AppNotification(
+    val id: String,
+    val kind: AlertKind,
+    /** The percent threshold that was reached (for THRESHOLD alerts). */
+    val threshold: Int?,
+    val budgetId: String,
+    val categoryId: String?,
+    val period: BudgetPeriod,
+    val periodStart: LocalDate,
+    val periodEnd: LocalDate,
+    val amount: MinorUnits,
+    val spent: MinorUnits,
+    val percentUsed: Long,
+    /** Epoch milliseconds, server clock. */
+    val createdAt: Long,
+    val read: Boolean,
+)

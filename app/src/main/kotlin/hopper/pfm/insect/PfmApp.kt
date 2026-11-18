@@ -24,6 +24,7 @@ import hopper.pfm.insect.feature.category.CategoryEditScreen
 import hopper.pfm.insect.feature.category.CategoryListScreen
 import hopper.pfm.insect.feature.expense.ExpenseFormScreen
 import hopper.pfm.insect.feature.habit.HabitEditScreen
+import hopper.pfm.insect.feature.notification.NotificationCenterScreen
 import hopper.pfm.insect.feature.report.ReportCategoryScreen
 import hopper.pfm.insect.feature.habit.HabitListScreen
 import hopper.pfm.insect.shell.MainShell
@@ -63,6 +64,9 @@ data class BudgetEditKey(val budgetId: String? = null) : NavKey
 data class ReportCategoryKey(val categoryId: String? = null, val from: String, val to: String) : NavKey
 
 @Serializable
+data object NotificationsKey : NavKey
+
+@Serializable
 data object HabitsKey : NavKey
 
 @Serializable
@@ -83,6 +87,17 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
     val backStack = rememberNavBackStack(SplashKey)
     val context = LocalContext.current
     val session by appViewModel.session.collectAsStateWithLifecycle()
+    val openNotifications by appViewModel.openNotifications.collectAsStateWithLifecycle()
+
+    // A tap on a system notification: open the notification center once the app is on its main screen.
+    LaunchedEffect(openNotifications, backStack.lastOrNull()) {
+        val top = backStack.lastOrNull()
+        val gate = top == SplashKey || top == LoginKey || top == RegisterKey || top == SessionExpiredKey || top == UpdateRequiredKey
+        if (openNotifications && !gate && top != null) {
+            if (top != NotificationsKey) backStack.add(NotificationsKey)
+            appViewModel.openNotificationsHandled()
+        }
+    }
 
     // Follow session changes once the splash is over (and the app is not blocked by an update).
     LaunchedEffect(session) {
@@ -140,6 +155,7 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
                     onAddBudget = { backStack.add(BudgetEditKey()) },
                     onEditBudget = { backStack.add(BudgetEditKey(it)) },
                     onReportCategory = { id, from, to -> backStack.add(ReportCategoryKey(id, from, to)) },
+                    onOpenNotifications = { backStack.add(NotificationsKey) },
                 )
             }
             entry<ExpenseFormKey> { key ->
@@ -152,6 +168,12 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
             }
             entry<BudgetEditKey> { key ->
                 BudgetEditScreen(budgetId = key.budgetId, onBack = { backStack.removeAt(backStack.lastIndex) })
+            }
+            entry<NotificationsKey> {
+                NotificationCenterScreen(
+                    onBack = { backStack.removeAt(backStack.lastIndex) },
+                    onBudget = { backStack.add(BudgetEditKey(it)) },
+                )
             }
             entry<ReportCategoryKey> { key ->
                 ReportCategoryScreen(

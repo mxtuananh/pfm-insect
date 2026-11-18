@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notif_title">Notifications</string>
+    <string name="notif_read_all">Mark all read</string>
+    <string name="notif_back">Back</string>
+    <string name="notif_section_warning">WARNING NOW</string>
+    <string name="notif_section_recent">RECENT</string>
+    <string name="notif_today">Today</string>
+    <string name="notif_yesterday">Yesterday</string>
+    <string name="notif_unread">Unread</string>
+    <string name="notif_empty_title">No notifications yet</string>
+    <string name="notif_empty_body">You will get an alert when spending reaches a threshold or goes over a budget</string>
+    <string name="notif_offline">Offline — showing saved notifications</string>
+    <string name="notif_permission_title">Turn on system notifications</string>
+    <string name="notif_permission_body">To get an alert after a background sync even when the app is closed</string>
+    <string name="notif_permission_action">Turn on</string>
+    <string name="notif_all_expenses">All expenses</string>
+    <string name="notif_period_day">daily</string>
+    <string name="notif_period_month">monthly</string>
+    <string name="notif_period_year">yearly</string>
+    <string name="notif_title_threshold">%1$s reached %2$d%% of the %3$s budget</string>
+    <string name="notif_title_exceeded">%1$s went over the %2$s budget</string>
+    <string name="notif_body">Spent %1$s / %2$s (%3$d%%)</string>
+    <string name="notif_local_exceeded">Spent %1$s / %2$s · over by %3$d%%</string>
+    <string name="notif_local_warning">Spent %1$s / %2$s · %3$d%%</string>
+    <string name="notif_local_title">%1$s · %2$s</string>
+    <string name="notif_period_month_word">month</string>
+    <string name="notif_period_day_word">day</string>
+    <string name="notif_period_year_word">year</string>
+    <string name="notif_channel_name">Budget alerts</string>
+    <string name="notif_channel_description">Alerts when spending reaches a threshold or goes over a budget</string>
+    <string name="notif_action_open">VIEW BUDGETS</string>
+</resources>

@@ -8,6 +8,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import hopper.pfm.insect.core.data.NotificationStreamManager
 import hopper.pfm.insect.core.data.sync.SyncScheduler
 import hopper.pfm.insect.core.domain.AuthRepository
 import hopper.pfm.insect.core.domain.sync.SyncRepository
@@ -22,12 +23,14 @@ class PfmApplication : Application(), Configuration.Provider {
     @Inject lateinit var auth: AuthRepository
     @Inject lateinit var sync: SyncRepository
     @Inject lateinit var scheduler: SyncScheduler
+    @Inject lateinit var stream: NotificationStreamManager
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
 
     override fun onCreate() {
         super.onCreate()
+        createAlertChannel(this)
         val process = ProcessLifecycleOwner.get()
         // Sync when the user signs in, keep a periodic safety net while signed in, stop when signed out.
         process.lifecycleScope.launch {
@@ -46,6 +49,12 @@ class PfmApplication : Application(), Configuration.Provider {
         process.lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 if (auth.session.value == SessionState.SignedIn) sync.requestSync()
+                // Live alerts only while the app is on screen.
+                stream.start(process.lifecycleScope)
+            }
+
+            override fun onStop(owner: LifecycleOwner) {
+                stream.stop()
             }
         })
     }

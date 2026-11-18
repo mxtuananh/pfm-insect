@@ -43,6 +43,10 @@ class SyncManager @Inject constructor(
     expenseApi: ExpenseApi,
     habitApi: HabitApi,
     budgetApi: BudgetApi,
+    notificationDao: hopper.pfm.insect.core.database.NotificationDao,
+    notificationApi: hopper.pfm.insect.core.network.NotificationApi,
+    // Provider: the listeners (for example the alert notifier) use repositories that depend on SyncRepository.
+    private val listeners: javax.inject.Provider<Set<@JvmSuppressWildcards SyncCompletionListener>>,
     private val session: SessionManager,
     private val scheduler: SyncScheduler,
 ) : SyncRepository {
@@ -54,6 +58,7 @@ class SyncManager @Inject constructor(
             ResourceSyncer(ExpenseSyncAdapter(expenseDao, expenseApi, cursors, db)),
             ResourceSyncer(HabitSyncAdapter(habitDao, habitApi, cursors, db)),
             ResourceSyncer(BudgetSyncAdapter(budgetDao, budgetApi, cursors, db)),
+            ResourceSyncer(NotificationSyncAdapter(notificationDao, notificationApi, cursors, db)),
         ),
     )
 
@@ -70,8 +75,15 @@ class SyncManager @Inject constructor(
 
     override fun requestSync() = scheduler.requestSync()
 
-    override suspend fun syncNow(): SyncResult = mutex.withLock {
-        if (session.state.value != SessionState.SignedIn) return SyncResult(problem = SyncProblem.AuthRequired)
+    override suspend fun syncNow(): SyncResult {
+        val result = runRound()
+        // After the round, outside the lock: for example to post system notifications for new alerts.
+        if (result.ok) listeners.get().forEach { it.onSyncCompleted() }
+        return result
+    }
+
+    private suspend fun runRound(): SyncResult = mutex.withLock {
+        if (session.state.value != SessionState.SignedIn) return@withLock SyncResult(problem = SyncProblem.AuthRequired)
         running.value = true
         try {
             var total = SyncResult()
