@@ -145,6 +145,26 @@ class SyncAgainstServerTest {
         assertFalse(pulled.dirty)
     }
 
+    @Test fun budgetRoundTripsThroughTheServer() = runBlocking {
+        engine.run()
+        val id = UUID.randomUUID().toString()
+        db.budgetDao().upsert(
+            hopper.pfm.insect.core.database.BudgetEntity(
+                id = id, categoryId = null, period = "month", amount = 3_000_000, startDate = "2026-11-01",
+                endDate = null, recurring = true, alertThresholds = "80,100", dirty = true, localRev = 1,
+            ),
+        )
+        assertTrue(engine.run().ok)
+        assertFalse(db.budgetDao().get(id)!!.dirty)
+        db.clearAllTables()
+        engine.run()
+        val pulled = db.budgetDao().get(id)!!
+        assertEquals("month", pulled.period)
+        assertEquals(3_000_000L, pulled.amount)
+        assertEquals("80,100", pulled.alertThresholds)
+        assertEquals(null, pulled.endDate)
+    }
+
     @Test fun rejectedRecordIsMarkedAndDoesNotBlockOthers() = runBlocking {
         engine.run()
         val category = (categoryApi.list() as Outcome.Success).value.items.first().id

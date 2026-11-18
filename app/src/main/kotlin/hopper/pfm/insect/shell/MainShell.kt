@@ -40,6 +40,7 @@ import hopper.pfm.insect.core.ui.floatingBarSpace
 import hopper.pfm.insect.core.ui.FloatingNavBar
 import hopper.pfm.insect.core.ui.NavBarItem
 import hopper.pfm.insect.feature.auth.ProfileLinks
+import hopper.pfm.insect.feature.budget.BudgetListScreen
 import hopper.pfm.insect.feature.auth.ProfileScreen
 import hopper.pfm.insect.feature.expense.ExpenseListScreen
 
@@ -54,6 +55,8 @@ fun MainShell(
     onEditExpense: (String) -> Unit,
     onCategories: () -> Unit,
     onHabits: () -> Unit,
+    onAddBudget: () -> Unit,
+    onEditBudget: (String) -> Unit,
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val hazeState = rememberHazeState()
@@ -85,6 +88,13 @@ fun MainShell(
                 ExpenseListScreen(
                     onAdd = onAddExpense,
                     onEdit = onEditExpense,
+                    bottomBarSpace = floatingBarSpace(),
+                    modifier = Modifier.weight(1f),
+                )
+            } else if (selected == 1) {
+                BudgetListScreen(
+                    onAdd = onAddBudget,
+                    onEdit = onEditBudget,
                     bottomBarSpace = floatingBarSpace(),
                     modifier = Modifier.weight(1f),
                 )

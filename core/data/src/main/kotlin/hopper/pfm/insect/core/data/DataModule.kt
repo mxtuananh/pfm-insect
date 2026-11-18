@@ -8,6 +8,7 @@ import hopper.pfm.insect.core.common.TokenStore
 import hopper.pfm.insect.core.datastore.KeystoreTokenStore
 import hopper.pfm.insect.core.domain.AuthRepository
 import hopper.pfm.insect.core.domain.HealthRepository
+import hopper.pfm.insect.core.domain.budget.BudgetRepository
 import hopper.pfm.insect.core.domain.expense.CategoryRepository
 import hopper.pfm.insect.core.domain.expense.ExpenseRepository
 import hopper.pfm.insect.core.domain.expense.UserSettings
@@ -53,4 +54,8 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindHabitRepository(impl: HabitRepositoryImpl): HabitRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBudgetRepository(impl: BudgetRepositoryImpl): BudgetRepository
 }
