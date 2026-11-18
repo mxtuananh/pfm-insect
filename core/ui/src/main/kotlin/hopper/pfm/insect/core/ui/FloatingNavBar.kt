@@ -1,34 +1,38 @@
 package hopper.pfm.insect.core.ui
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.DefaultShadowColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
@@ -65,37 +69,51 @@ fun FloatingNavBar(
     val container = MaterialTheme.colorScheme.surfaceContainer
     val style = HazeStyle(
         backgroundColor = container,
-        tint = HazeTint(container.copy(alpha = 0.72f)),
-        blurRadius = 24.dp,
-        fallbackTint = HazeTint(container.copy(alpha = 0.92f)),
+        tint = HazeTint(container.copy(alpha = 0.5f)),
+        blurRadius = 10.dp,
+        fallbackTint = HazeTint(container.copy(alpha = 0.75f)),
+    )
+    val selectedBackground = MaterialTheme.colorScheme.secondaryContainer
+    val dpOffsetX by animateDpAsState(
+        targetValue = SlotWidth * selectedIndex,
+        label = "dpOffsetX",
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)
     )
     Box(
         modifier = modifier
             .navigationBarsPadding()
             .padding(16.dp)
-            .shadow(elevation = 8.dp, shape = CircleShape, clip = false)
-            .height(BarHeight),
+            .dropShadow(CircleShape) {
+                this.color = DefaultShadowColor
+                this.offset = Offset(x = 0f, y = 4f)
+                this.radius = 14f
+                this.alpha = 0.45f
+            }
+            .clip(CircleShape)
+            .height(BarHeight)
+            .hazeEffect(state = hazeState, style = style),
     ) {
-        Surface(
-            shape = CircleShape,
-            color = androidx.compose.ui.graphics.Color.Transparent,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        Row(
             modifier = Modifier
-                .clip(CircleShape)
-                .hazeEffect(state = hazeState, style = style),
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(0.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                items.forEachIndexed { index, item ->
-                    NavSlot(
-                        item = item,
-                        selected = index == selectedIndex,
-                        onClick = { onSelect(index) },
+                .padding(horizontal = 4.dp, vertical = 4.dp)
+                .drawBehind {
+                    val left = dpOffsetX.toPx()
+                    drawRoundRect(
+                        color = selectedBackground,
+                        topLeft = Offset(x = left, y = 0f),
+                        size = size.copy(width = SlotWidth.toPx()),
+                        cornerRadius = CornerRadius(size.height / 2f)
                     )
-                }
+                },
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            items.forEachIndexed { index, item ->
+                NavSlot(
+                    item = item,
+                    selected = index == selectedIndex,
+                    onClick = { onSelect(index) },
+                )
             }
         }
     }
@@ -107,10 +125,10 @@ private fun NavSlot(item: NavBarItem, selected: Boolean, onClick: () -> Unit) {
     val contentColor = if (selected) colors.onSecondaryContainer else colors.onSurfaceVariant
     Box(
         modifier = Modifier
+            .clip(CircleShape)
             .width(SlotWidth)
             .height(SlotHeight)
-            .background(if (selected) colors.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent, CircleShape)
-            .selectable(selected = selected, role = Role.Tab, onClick = onClick),
+            .clickable(enabled = !selected, role = Role.Tab, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
