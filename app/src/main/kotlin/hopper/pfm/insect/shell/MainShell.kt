@@ -53,6 +53,7 @@ fun MainShell(
     onAddExpense: () -> Unit,
     onEditExpense: (String) -> Unit,
     onCategories: () -> Unit,
+    onHabits: () -> Unit,
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val hazeState = rememberHazeState()
@@ -90,7 +91,7 @@ fun MainShell(
             } else if (selected == 3) {
                 ProfileScreen(
                     onEdit = onEditProfile,
-                    links = ProfileLinks(onCategories = onCategories),
+                    links = ProfileLinks(onCategories = onCategories, onHabits = onHabits),
                     modifier = Modifier.weight(1f),
                 )
             } else {

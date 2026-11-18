@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
@@ -107,6 +109,24 @@ fun ExpenseFormScreen(
                     SyncStatus.PENDING -> BannerRow(stringResource(R.string.form_pending_banner), tertiary = true)
                     SyncStatus.FAILED -> BannerRow(stringResource(R.string.form_rejected_banner), tertiary = false)
                     SyncStatus.SYNCED -> Unit
+                }
+                if (state.habits.isNotEmpty()) {
+                    Text(
+                        stringResource(R.string.form_from_habit),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 16.dp)) {
+                        items(state.habits, key = { it.id }) { habit ->
+                            FilterChip(
+                                selected = false,
+                                onClick = { viewModel.onHabit(habit) },
+                                label = { Text(habit.title) },
+                                shape = CircleShape,
+                            )
+                        }
+                    }
                 }
                 AmountField(
                     value = state.amountText,

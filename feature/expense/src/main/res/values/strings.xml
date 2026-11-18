@@ -40,6 +40,7 @@
     <string name="form_title">Description</string>
     <string name="form_title_error">Enter a description (up to 100 characters)</string>
     <string name="form_category">Category</string>
+    <string name="form_from_habit">From a habit</string>
     <string name="form_new_category">＋ Category</string>
     <string name="form_date">Date</string>
     <string name="form_date_error">The year must be between 2000 and 2100</string>

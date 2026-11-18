@@ -99,6 +99,9 @@ interface ExpenseDao : SyncDao {
 
 @Dao
 interface HabitDao : SyncDao {
+    @Query("SELECT * FROM habit WHERE deleted = 0 ORDER BY sortOrder, title COLLATE NOCASE")
+    suspend fun listLive(): List<HabitEntity>
+
     @Query("SELECT id, version, deleted, dirty, localRev, failure FROM habit WHERE dirty = 1 AND failure IS NULL")
     override suspend fun dirtyMeta(): List<SyncMetaRow>
 

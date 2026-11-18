@@ -22,6 +22,8 @@ import hopper.pfm.insect.feature.auth.SessionExpiredScreen
 import hopper.pfm.insect.feature.category.CategoryEditScreen
 import hopper.pfm.insect.feature.category.CategoryListScreen
 import hopper.pfm.insect.feature.expense.ExpenseFormScreen
+import hopper.pfm.insect.feature.habit.HabitEditScreen
+import hopper.pfm.insect.feature.habit.HabitListScreen
 import hopper.pfm.insect.shell.MainShell
 import hopper.pfm.insect.shell.SplashScreen
 import hopper.pfm.insect.shell.StartDestination
@@ -51,6 +53,12 @@ data object UpdateRequiredKey : NavKey
 
 @Serializable
 data class ExpenseFormKey(val expenseId: String? = null) : NavKey
+
+@Serializable
+data object HabitsKey : NavKey
+
+@Serializable
+data class HabitEditKey(val habitId: String? = null) : NavKey
 
 @Serializable
 data object CategoriesKey : NavKey
@@ -120,6 +128,7 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
                     onAddExpense = { backStack.add(ExpenseFormKey()) },
                     onEditExpense = { backStack.add(ExpenseFormKey(it)) },
                     onCategories = { backStack.add(CategoriesKey) },
+                    onHabits = { backStack.add(HabitsKey) },
                 )
             }
             entry<ExpenseFormKey> { key ->
@@ -128,6 +137,19 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
                     onBack = { backStack.removeAt(backStack.lastIndex) },
                     onNewCategory = { backStack.add(CategoryEditKey()) },
                     onDeleted = { backStack.removeAt(backStack.lastIndex) },
+                )
+            }
+            entry<HabitsKey> {
+                HabitListScreen(
+                    onBack = { backStack.removeAt(backStack.lastIndex) },
+                    onEdit = { backStack.add(HabitEditKey(it)) },
+                )
+            }
+            entry<HabitEditKey> { key ->
+                HabitEditScreen(
+                    habitId = key.habitId,
+                    onBack = { backStack.removeAt(backStack.lastIndex) },
+                    onNewCategory = { backStack.add(CategoryEditKey()) },
                 )
             }
             entry<CategoriesKey> {

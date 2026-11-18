@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="habit_title">Habits</string>
+    <string name="habit_hint">Tap + to record the expense for today</string>
+    <string name="habit_add">Habit</string>
+    <string name="habit_quick_add">Add expense today</string>
+    <string name="habit_added">Added \"%1$s\" · %2$s today</string>
+    <string name="habit_undo">UNDO</string>
+    <string name="habit_empty_title">No habits yet</string>
+    <string name="habit_empty_body">A habit is a template for an expense you repeat, like breakfast</string>
+    <string name="habit_every_day">Every day</string>
+    <string name="habit_weekdays">Mon – Fri</string>
+    <string name="habit_pending">Waiting to sync</string>
+    <string name="habit_rejected">Rejected by the server</string>
+    <string name="habit_limit">You can have up to 200 habits</string>
+    <string name="habit_menu">More</string>
+    <string name="habit_edit">Edit</string>
+    <string name="habit_move_up">Move up</string>
+    <string name="habit_move_down">Move down</string>
+    <string name="habit_new_title">New habit</string>
+    <string name="habit_edit_title">Edit habit</string>
+    <string name="habit_back">Back</string>
+    <string name="habit_delete">Delete</string>
+    <string name="habit_amount">Amount</string>
+    <string name="habit_amount_error">Enter an amount greater than 0</string>
+    <string name="habit_name">Name</string>
+    <string name="habit_name_error">Enter a name (up to 100 characters)</string>
+    <string name="habit_category">Category</string>
+    <string name="habit_days">Days of the week</string>
+    <string name="habit_days_error">Pick at least one day</string>
+    <string name="habit_time">Time (optional)</string>
+    <string name="habit_time_clear">Remove time</string>
+    <string name="habit_time_hint">Only used for display and ordering</string>
+    <string name="habit_note">Note (optional)</string>
+    <string name="habit_save">Save</string>
+    <string name="habit_ok">OK</string>
+    <string name="habit_cancel">Cancel</string>
+    <string name="day_mon">Mo</string>
+    <string name="day_tue">Tu</string>
+    <string name="day_wed">We</string>
+    <string name="day_thu">Th</string>
+    <string name="day_fri">Fr</string>
+    <string name="day_sat">Sa</string>
+    <string name="day_sun">Su</string>
+</resources>

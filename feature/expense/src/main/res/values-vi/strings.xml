@@ -40,6 +40,7 @@
     <string name="form_title">Nội dung</string>
     <string name="form_title_error">Nhập nội dung (tối đa 100 ký tự)</string>
     <string name="form_category">Danh mục</string>
+    <string name="form_from_habit">Từ thói quen</string>
     <string name="form_new_category">＋ Danh mục</string>
     <string name="form_date">Ngày</string>
     <string name="form_date_error">Năm phải từ 2000 đến 2100</string>

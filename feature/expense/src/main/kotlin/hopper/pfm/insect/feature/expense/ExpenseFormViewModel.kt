@@ -10,7 +10,10 @@ import hopper.pfm.insect.core.common.Money
 import hopper.pfm.insect.core.domain.AuthRepository
 import hopper.pfm.insect.core.domain.expense.CategoryRepository
 import hopper.pfm.insect.core.domain.expense.ExpenseRepository
+import hopper.pfm.insect.core.domain.habit.HabitRepository
+import hopper.pfm.insect.core.domain.habit.sortedForToday
 import hopper.pfm.insect.core.model.Category
+import hopper.pfm.insect.core.model.Habit
 import hopper.pfm.insect.core.model.Expense
 import hopper.pfm.insect.core.model.SyncStatus
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +42,8 @@ data class ExpenseFormUiState(
     val date: LocalDate = LocalDate.now(),
     val note: String = "",
     val categories: List<Category> = emptyList(),
+    /** Habits offered as shortcuts that fill the form (new expenses only). */
+    val habits: List<Habit> = emptyList(),
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
     /** Errors are only shown after the first attempt to save, so an empty new form is not red. */
     val showErrors: Boolean = false,
@@ -64,6 +69,7 @@ class ExpenseFormViewModel @AssistedInject constructor(
     private val expenses: ExpenseRepository,
     categories: CategoryRepository,
     private val auth: AuthRepository,
+    habits: HabitRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -100,6 +106,11 @@ class ExpenseFormViewModel @AssistedInject constructor(
             }
         }
         viewModelScope.launch {
+            habits.observeAll().collect { all ->
+                _state.update { it.copy(habits = if (expenseId == null) all.sortedForToday(LocalDate.now()) else emptyList()) }
+            }
+        }
+        viewModelScope.launch {
             categories.observeAll().collect { all ->
                 // Archived categories are not offered for new choices, but the one already used stays selectable.
                 _state.update { s ->
@@ -120,6 +131,16 @@ class ExpenseFormViewModel @AssistedInject constructor(
             if (cleaned.isEmpty() || Money.parse(cleaned.trimEnd('.').ifEmpty { "0" }, s.currency) != null && cleaned.count { it == '.' } <= 1) cleaned else s.amountText
         }
         s.copy(amountText = text)
+    }
+
+    /** Fills the form from a habit (amount, name, category, note); everything stays editable before saving. */
+    fun onHabit(habit: Habit) = _state.update {
+        it.copy(
+            amountText = Money.format(habit.amount, it.currency),
+            title = habit.title,
+            categoryId = habit.categoryId,
+            note = habit.note.orEmpty(),
+        )
     }
 
     fun onTitle(value: String) = _state.update { it.copy(title = value.take(MAX_TITLE)) }

@@ -124,6 +124,27 @@ class SyncAgainstServerTest {
         assertTrue((expenseApi.page(null) as Outcome.Success).value.items.isEmpty())
     }
 
+    @Test fun habitRoundTripsThroughTheServer() = runBlocking {
+        engine.run()
+        val id = UUID.randomUUID().toString()
+        db.habitDao().upsert(
+            hopper.pfm.insect.core.database.HabitEntity(
+                id = id, title = "Breakfast", note = null, amount = 30_000, categoryId = null,
+                daysOfWeek = "1,2,3", timeOfDay = "07:30", sortOrder = 0, dirty = true, localRev = 1,
+            ),
+        )
+        assertTrue(engine.run().ok)
+        assertFalse(db.habitDao().get(id)!!.dirty)
+        // Another device sees it: a second, empty database pulls it.
+        db.clearAllTables()
+        engine.run()
+        val pulled = db.habitDao().get(id)!!
+        assertEquals("Breakfast", pulled.title)
+        assertEquals("1,2,3", pulled.daysOfWeek)
+        assertEquals("07:30", pulled.timeOfDay)
+        assertFalse(pulled.dirty)
+    }
+
     @Test fun rejectedRecordIsMarkedAndDoesNotBlockOthers() = runBlocking {
         engine.run()
         val category = (categoryApi.list() as Outcome.Success).value.items.first().id
