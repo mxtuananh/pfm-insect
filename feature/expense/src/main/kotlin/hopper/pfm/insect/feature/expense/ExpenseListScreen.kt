@@ -1,7 +1,11 @@
 package hopper.pfm.insect.feature.expense
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -28,9 +33,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -40,6 +42,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,6 +50,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -69,6 +74,12 @@ import hopper.pfm.insect.core.ui.CategoryColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+
+val options = listOf(
+    PeriodType.DAY to R.string.period_day,
+    PeriodType.WEEK to R.string.period_week,
+    PeriodType.MONTH to R.string.period_month,
+)
 
 /**
  * Content of the Chi tiêu tab. The shell draws the top bar and the floating bottom bar; this screen reserves space for
@@ -102,11 +113,11 @@ fun ExpenseListScreen(
     Box(modifier.fillMaxSize()) {
         val overview = state.overview
         LazyColumn(
-            contentPadding = PaddingValues(horizontal = 16.dp).plus(contentPadding),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 60.dp)
+                .plus(contentPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            item(key = "switcher") { PeriodSwitcher(state.periodType, viewModel::setPeriodType) }
             item(key = "navigator") {
                 PeriodNavigator(
                     label = periodLabel(state),
@@ -175,6 +186,13 @@ fun ExpenseListScreen(
                 }
             }
         }
+        PeriodSwitcher(
+            state.periodType,
+            viewModel::setPeriodType,
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .padding(top = contentPadding.calculateTopPadding())
+        )
         FloatingActionButton(
             onClick = onAdd,
             shape = CircleShape,
@@ -182,7 +200,7 @@ fun ExpenseListScreen(
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = contentPadding.calculateBottomPadding() - 16.dp),
+                .padding(end = 16.dp, bottom = contentPadding.calculateBottomPadding()),
         ) {
             Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_expense))
         }
@@ -230,19 +248,51 @@ private fun periodLabel(state: ExpenseListUiState): String {
 }
 
 @Composable
-private fun PeriodSwitcher(selected: PeriodType, onSelect: (PeriodType) -> Unit) {
-    val options = listOf(
-        PeriodType.DAY to R.string.period_day,
-        PeriodType.WEEK to R.string.period_week,
-        PeriodType.MONTH to R.string.period_month,
+private fun PeriodSwitcher(
+    selected: PeriodType,
+    onSelect: (PeriodType) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val selectedBg = MaterialTheme.colorScheme.secondaryContainer
+    val offsetXMultiplier by animateFloatAsState(
+        targetValue = selected.ordinal.toFloat(),
+        label = "offsetXMultiplier",
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)
     )
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        options.forEachIndexed { index, (type, label) ->
-            SegmentedButton(
-                selected = selected == type,
-                onClick = { onSelect(type) },
-                shape = SegmentedButtonDefaults.itemShape(index, options.size),
-            ) { Text(stringResource(label)) }
+    Row(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .fillMaxWidth()
+            .height(48.dp)
+            .padding(4.dp)
+            .drawBehind {
+                drawRoundRect(
+                    color = selectedBg,
+                    topLeft = Offset(x = offsetXMultiplier * (size.width / options.size), y = 0f),
+                    size = size.copy(width = size.width / options.size),
+                    cornerRadius = CornerRadius(size.height / 2f)
+                )
+            }
+    ) {
+        options.forEach { (type, labelResId) ->
+            val isSelected = selected == type
+            Text(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(CircleShape)
+                    .fillMaxSize()
+                    .clickable(enabled = !isSelected) {
+                        onSelect(type)
+                    }
+                    .wrapContentSize(align = Alignment.Center),
+                text = stringResource(labelResId),
+                style = MaterialTheme.typography.labelLarge,
+                color = when {
+                    isSelected -> contentColorFor(selectedBg)
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
         }
     }
 }
