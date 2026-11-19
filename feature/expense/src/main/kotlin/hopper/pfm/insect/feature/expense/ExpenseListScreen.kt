@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -22,7 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -35,9 +35,9 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -51,7 +51,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,18 +69,16 @@ import hopper.pfm.insect.core.ui.CategoryColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.util.Locale
 
 /**
  * Content of the Chi tiêu tab. The shell draws the top bar and the floating bottom bar; this screen reserves space for
  * the bar at the bottom of its list and places its own floating action button above it.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseListScreen(
     onAdd: () -> Unit,
     onEdit: (expenseId: String) -> Unit,
-    bottomBarSpace: androidx.compose.ui.unit.Dp,
+    contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     viewModel: ExpenseListViewModel = hiltViewModel(),
 ) {
@@ -92,7 +90,11 @@ fun ExpenseListScreen(
 
     LaunchedEffect(lastDeleted) {
         if (lastDeleted != null) {
-            val result = snackbar.showSnackbar(deletedText, actionLabel = undoText, duration = SnackbarDuration.Long)
+            val result = snackbar.showSnackbar(
+                deletedText,
+                actionLabel = undoText,
+                duration = SnackbarDuration.Long
+            )
             if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete() else viewModel.clearLastDeleted()
         }
     }
@@ -100,7 +102,7 @@ fun ExpenseListScreen(
     Box(modifier.fillMaxSize()) {
         val overview = state.overview
         LazyColumn(
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomBarSpace),
+            contentPadding = PaddingValues(horizontal = 16.dp).plus(contentPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
@@ -125,7 +127,12 @@ fun ExpenseListScreen(
                 }
                 item(key = "chart") {
                     if (state.periodType == PeriodType.DAY) {
-                        CategoryBreakdown(overview.categoryTotals, state.categories, state.currency, state.categoryFilter)
+                        CategoryBreakdown(
+                            overview.categoryTotals,
+                            state.categories,
+                            state.currency,
+                            state.categoryFilter
+                        )
                     } else {
                         DayChart(
                             days = overview.dayTotals,
@@ -137,10 +144,20 @@ fun ExpenseListScreen(
                     }
                 }
                 item(key = "chips") {
-                    CategoryChips(overview.categoryTotals, state.categories, state.categoryFilter, viewModel::filterByCategory)
+                    CategoryChips(
+                        overview.categoryTotals,
+                        state.categories,
+                        state.categoryFilter,
+                        viewModel::filterByCategory
+                    )
                 }
                 if (overview.groups.isEmpty()) {
-                    item(key = "empty") { EmptyState(filtered = state.categoryFilter != null, onAdd = onAdd) }
+                    item(key = "empty") {
+                        EmptyState(
+                            filtered = state.categoryFilter != null,
+                            onAdd = onAdd
+                        )
+                    }
                 }
                 overview.groups.forEach { group ->
                     item(key = "header-${group.date}") {
@@ -163,13 +180,18 @@ fun ExpenseListScreen(
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottomBarSpace - 16.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = contentPadding.calculateBottomPadding() - 16.dp),
         ) {
             Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_expense))
         }
         SnackbarHost(
             hostState = snackbar,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bottomBarSpace - 16.dp, start = 16.dp, end = 88.dp),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(start = 16.dp, end = 88.dp)
+                .padding(contentPadding),
         )
     }
 }
@@ -185,16 +207,25 @@ private fun unitLabel(type: PeriodType): String = stringResource(
 
 @Composable
 private fun periodLabel(state: ExpenseListUiState): String {
-    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val locale = LocalLocale.current
     val p = state.period
     return when (p.type) {
-        PeriodType.DAY -> p.start.format(DateTimeFormatter.ofPattern("EEE, dd/MM/yyyy", locale))
+        PeriodType.DAY -> p.start.format(
+            DateTimeFormatter.ofPattern(
+                "EEE, dd/MM/yyyy",
+                locale.platformLocale
+            )
+        )
+
         PeriodType.WEEK -> stringResource(
             R.string.period_week_range,
             p.start.format(DateTimeFormatter.ofPattern("dd/MM")),
             p.end.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
         )
-        PeriodType.MONTH -> stringResource(R.string.period_month) + " " + p.start.format(DateTimeFormatter.ofPattern("MM/yyyy"))
+
+        PeriodType.MONTH -> stringResource(R.string.period_month) + " " + p.start.format(
+            DateTimeFormatter.ofPattern("MM/yyyy")
+        )
     }
 }
 
@@ -217,24 +248,50 @@ private fun PeriodSwitcher(selected: PeriodType, onSelect: (PeriodType) -> Unit)
 }
 
 @Composable
-private fun PeriodNavigator(label: String, showToday: Boolean, onPrevious: () -> Unit, onNext: () -> Unit, onToday: () -> Unit) {
+private fun PeriodNavigator(
+    label: String,
+    showToday: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onToday: () -> Unit
+) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onPrevious) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.period_previous))
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = stringResource(R.string.period_previous)
+            )
         }
-        Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
         if (showToday) TextButton(onClick = onToday) { Text(stringResource(R.string.period_today)) }
         IconButton(onClick = onNext) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.period_next))
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = stringResource(R.string.period_next)
+            )
         }
     }
 }
 
 @Composable
 private fun SummaryCard(total: Long, delta: Int?, currency: String, unit: String) {
-    Surface(shape = RoundedCornerShape(32.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(32.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(R.string.summary_total), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text(
+                stringResource(R.string.summary_total),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
             Text(
                 Money.formatWithSymbol(total, currency),
                 style = MaterialTheme.typography.displaySmall,
@@ -247,28 +304,52 @@ private fun SummaryCard(total: Long, delta: Int?, currency: String, unit: String
                 else -> stringResource(R.string.summary_delta_same, unit)
             }
             if (text != null) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)) {
-                    Text(text, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                ) {
+                    Text(
+                        text,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
                 }
             }
         }
     }
 }
 
-/** Bars for the days of a week or month. Tapping a bar shows its amount; the selected bar uses the primary colour. */
+/** Bars for the days of a week or month. Tapping a bar shows its amount; the selected bar uses the primary color. */
 @Composable
-private fun DayChart(days: List<DayTotal>, periodType: PeriodType, selected: LocalDate?, currency: String, onSelect: (LocalDate?) -> Unit) {
+private fun DayChart(
+    days: List<DayTotal>,
+    periodType: PeriodType,
+    selected: LocalDate?,
+    currency: String,
+    onSelect: (LocalDate?) -> Unit
+) {
     val colors = MaterialTheme.colorScheme
     val max = days.maxOfOrNull { it.amount }?.takeIf { it > 0 } ?: 1L
-    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
-    Surface(shape = RoundedCornerShape(28.dp), color = colors.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+    val locale = LocalLocale.current
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = colors.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(R.string.chart_by_day), style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.chart_by_day),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.onSurfaceVariant
+                )
                 selected?.let { day ->
                     val amount = days.firstOrNull { it.date == day }?.amount ?: 0
                     Text(
-                        day.format(DateTimeFormatter.ofPattern("dd/MM")) + " · " + Money.formatWithSymbol(amount, currency),
+                        day.format(DateTimeFormatter.ofPattern("dd/MM")) + " · " + Money.formatWithSymbol(
+                            amount,
+                            currency
+                        ),
                         style = MaterialTheme.typography.labelLarge,
                         color = colors.primary,
                     )
@@ -278,18 +359,25 @@ private fun DayChart(days: List<DayTotal>, periodType: PeriodType, selected: Loc
             val selectedColor = colors.primary
             val emptyColor = colors.outlineVariant
             Canvas(
-                Modifier.fillMaxWidth().height(120.dp).pointerInput(days) {
-                    detectTapGestures { offset ->
-                        val index = (offset.x / (size.width / days.size)).toInt().coerceIn(0, days.size - 1)
-                        onSelect(days[index].date)
-                    }
-                },
+                Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .pointerInput(days) {
+                        detectTapGestures { offset ->
+                            val index =
+                                (offset.x / (size.width / days.size)).toInt()
+                                    .coerceIn(0, days.size - 1)
+                            onSelect(days[index].date)
+                        }
+                    },
             ) {
                 val slot = size.width / days.size
                 val gap = slot * 0.25f
                 val barWidth = slot - gap
                 days.forEachIndexed { i, day ->
-                    val height = if (day.amount <= 0) 3.dp.toPx() else (size.height * day.amount / max).toFloat().coerceAtLeast(6.dp.toPx())
+                    val height =
+                        if (day.amount <= 0) 3.dp.toPx() else (size.height * day.amount / max)
+                            .coerceAtLeast(6.dp.toPx())
                     val color = when {
                         day.date == selected -> selectedColor
                         day.amount <= 0 -> emptyColor
@@ -307,7 +395,10 @@ private fun DayChart(days: List<DayTotal>, periodType: PeriodType, selected: Loc
                 Row(Modifier.fillMaxWidth()) {
                     days.forEach { day ->
                         Text(
-                            day.date.dayOfWeek.getDisplayName(TextStyle.NARROW, locale),
+                            day.date.dayOfWeek.getDisplayName(
+                                TextStyle.NARROW,
+                                locale.platformLocale
+                            ),
                             style = MaterialTheme.typography.labelSmall,
                             color = colors.onSurfaceVariant,
                             modifier = Modifier.weight(1f),
@@ -318,7 +409,11 @@ private fun DayChart(days: List<DayTotal>, periodType: PeriodType, selected: Loc
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     listOf(days.first(), days[days.size / 2], days.last()).forEach {
-                        Text(it.date.dayOfMonth.toString(), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                        Text(
+                            it.date.dayOfMonth.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -328,24 +423,58 @@ private fun DayChart(days: List<DayTotal>, periodType: PeriodType, selected: Loc
 
 /** The day view: expenses have a date but no time, so the day is broken down by category instead of by hour. */
 @Composable
-private fun CategoryBreakdown(totals: List<CategoryTotal>, categories: Map<String, Category>, currency: String, filter: String?) {
+private fun CategoryBreakdown(
+    totals: List<CategoryTotal>,
+    categories: Map<String, Category>,
+    currency: String,
+    filter: String?
+) {
     val colors = MaterialTheme.colorScheme
-    Surface(shape = RoundedCornerShape(28.dp), color = colors.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = colors.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(stringResource(R.string.chart_by_category), style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+            Text(
+                stringResource(R.string.chart_by_category),
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.onSurfaceVariant
+            )
             val max = totals.maxOfOrNull { it.amount }?.takeIf { it > 0 } ?: 1L
             totals.forEach { total ->
                 val category = total.categoryId?.let { categories[it] }
                 val dim = filter != null && filter != total.categoryId
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(category?.name ?: stringResource(R.string.filter_uncategorized), style = MaterialTheme.typography.bodyMedium)
-                        Text(Money.formatWithSymbol(total.amount, currency), style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            category?.name ?: stringResource(R.string.filter_uncategorized),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            Money.formatWithSymbol(total.amount, currency),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
-                    Box(Modifier.fillMaxWidth().height(8.dp).background(colors.surfaceContainerHighest, CircleShape)) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .background(colors.surfaceContainerHighest, CircleShape)
+                    ) {
                         Box(
-                            Modifier.fillMaxWidth((total.amount.toFloat() / max).coerceIn(0.02f, 1f)).height(8.dp)
-                                .background(CategoryColors.parse(category?.color).copy(alpha = if (dim) 0.35f else 1f), CircleShape),
+                            Modifier
+                                .fillMaxWidth(
+                                    (total.amount.toFloat() / max).coerceIn(
+                                        0.02f,
+                                        1f
+                                    )
+                                )
+                                .height(8.dp)
+                                .background(
+                                    CategoryColors.parse(category?.color)
+                                        .copy(alpha = if (dim) 0.35f else 1f), CircleShape
+                                ),
                         )
                     }
                 }
@@ -356,11 +485,21 @@ private fun CategoryBreakdown(totals: List<CategoryTotal>, categories: Map<Strin
 }
 
 @Composable
-private fun CategoryChips(totals: List<CategoryTotal>, categories: Map<String, Category>, filter: String?, onFilter: (String?) -> Unit) {
+private fun CategoryChips(
+    totals: List<CategoryTotal>,
+    categories: Map<String, Category>,
+    filter: String?,
+    onFilter: (String?) -> Unit
+) {
     if (totals.isEmpty()) return
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         item(key = "all") {
-            FilterChip(selected = filter == null, onClick = { onFilter(null) }, label = { Text(stringResource(R.string.filter_all)) }, shape = CircleShape)
+            FilterChip(
+                selected = filter == null,
+                onClick = { onFilter(null) },
+                label = { Text(stringResource(R.string.filter_all)) },
+                shape = CircleShape
+            )
         }
         items(totals.filter { it.categoryId != null }, key = { it.categoryId!! }) { total ->
             val category = categories[total.categoryId]
@@ -377,25 +516,39 @@ private fun CategoryChips(totals: List<CategoryTotal>, categories: Map<String, C
 
 @Composable
 private fun DayHeader(date: LocalDate, total: Long, currency: String, today: LocalDate) {
-    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val locale = LocalLocale.current
     val name = when (date) {
         today -> stringResource(R.string.list_today)
         today.minusDays(1) -> stringResource(R.string.list_yesterday)
-        else -> date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
+        else -> date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale.platformLocale)
     }
-    Row(Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp, end = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, start = 4.dp, end = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
         Text(
             "$name · " + date.format(DateTimeFormatter.ofPattern("dd/MM")),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(Money.formatWithSymbol(total, currency), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            Money.formatWithSymbol(total, currency),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ExpenseRow(expense: Expense, category: Category?, currency: String, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun ExpenseRow(
+    expense: Expense,
+    category: Category?,
+    currency: String,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -411,10 +564,17 @@ private fun ExpenseRow(expense: Expense, category: Category?, currency: String, 
         enableDismissFromStartToEnd = false,
         backgroundContent = {
             Box(
-                Modifier.fillMaxSize().background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(28.dp)).padding(end = 24.dp),
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(28.dp))
+                    .padding(end = 24.dp),
                 contentAlignment = Alignment.CenterEnd,
             ) {
-                Text(stringResource(R.string.form_delete), color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    stringResource(R.string.form_delete),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         },
     ) {
@@ -424,10 +584,19 @@ private fun ExpenseRow(expense: Expense, category: Category?, currency: String, 
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 CategoryAvatar(category?.icon, category?.color)
                 Column(Modifier.weight(1f)) {
-                    Text(expense.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        expense.title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     val marker = when (expense.syncStatus) {
                         SyncStatus.PENDING -> " · ⟳ " + stringResource(R.string.item_pending)
                         SyncStatus.FAILED -> " · ⚠ " + stringResource(R.string.item_rejected)
@@ -441,7 +610,10 @@ private fun ExpenseRow(expense: Expense, category: Category?, currency: String, 
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Text("−" + Money.formatWithSymbol(expense.amount, currency), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "−" + Money.formatWithSymbol(expense.amount, currency),
+                    style = MaterialTheme.typography.titleMedium
+                )
             }
         }
     }
@@ -450,7 +622,9 @@ private fun ExpenseRow(expense: Expense, category: Category?, currency: String, 
 @Composable
 private fun EmptyState(filtered: Boolean, onAdd: () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().padding(vertical = 32.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -459,7 +633,11 @@ private fun EmptyState(filtered: Boolean, onAdd: () -> Unit) {
             style = MaterialTheme.typography.titleMedium,
         )
         if (!filtered) {
-            Text(stringResource(R.string.empty_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                stringResource(R.string.empty_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             TextButton(onClick = onAdd) { Text(stringResource(R.string.add_expense)) }
         }
     }

@@ -9,11 +9,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,11 +49,10 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,10 +71,11 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.util.Locale
 
 private fun LocalDate.toPickerMillis() = atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-private fun Long.toPickerDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
+private fun Long.toPickerDate(): LocalDate =
+    Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
+
 private val DayMonth: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM")
 private val DayMonthYear: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
@@ -83,7 +83,7 @@ private val DayMonthYear: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM
 @Composable
 fun ReportScreen(
     onCategory: (categoryId: String?, from: String, to: String) -> Unit,
-    bottomBarSpace: Dp,
+    contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     viewModel: ReportViewModel = hiltViewModel(),
 ) {
@@ -92,7 +92,7 @@ fun ReportScreen(
     val report = state.report
 
     LazyColumn(
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomBarSpace),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp) + contentPadding,
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier.fillMaxSize(),
     ) {
@@ -100,18 +100,34 @@ fun ReportScreen(
         item(key = "range") {
             when (state.kind) {
                 ReportKind.MONTH -> Navigator(
-                    label = stringResource(R.string.report_month_label, state.month.format(DateTimeFormatter.ofPattern("MM/yyyy"))),
+                    label = stringResource(
+                        R.string.report_month_label,
+                        state.month.format(DateTimeFormatter.ofPattern("MM/yyyy"))
+                    ),
                     onPrevious = { viewModel.shift(-1) },
                     onNext = { viewModel.shift(1) },
                 )
+
                 ReportKind.YEAR -> Navigator(
                     label = stringResource(R.string.report_year_label, state.year),
                     onPrevious = { viewModel.shift(-1) },
                     onNext = { viewModel.shift(1) },
                 )
-                ReportKind.CUSTOM -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    DateChip(stringResource(R.string.report_from), state.customFrom.format(DayMonthYear), Modifier.weight(1f)) { picking = "from" }
-                    DateChip(stringResource(R.string.report_to), state.customTo.format(DayMonthYear), Modifier.weight(1f)) { picking = "to" }
+
+                ReportKind.CUSTOM -> Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    DateChip(
+                        stringResource(R.string.report_from),
+                        state.customFrom.format(DayMonthYear),
+                        Modifier.weight(1f)
+                    ) { picking = "from" }
+                    DateChip(
+                        stringResource(R.string.report_to),
+                        state.customTo.format(DayMonthYear),
+                        Modifier.weight(1f)
+                    ) { picking = "to" }
                 }
             }
         }
@@ -137,7 +153,13 @@ fun ReportScreen(
                         shares = report.categories,
                         categories = state.categories,
                         currency = state.currency,
-                        onClick = { share -> onCategory(share.categoryId, report.range.start.toString(), report.range.end.toString()) },
+                        onClick = { share ->
+                            onCategory(
+                                share.categoryId,
+                                report.range.start.toString(),
+                                report.range.end.toString()
+                            )
+                        },
                     )
                 }
             }
@@ -146,19 +168,26 @@ fun ReportScreen(
 
     picking?.let { which ->
         val initial = if (which == "from") state.customFrom else state.customTo
-        val pickerState = rememberDatePickerState(initialSelectedDateMillis = initial.toPickerMillis())
+        val pickerState =
+            rememberDatePickerState(initialSelectedDateMillis = initial.toPickerMillis())
         DatePickerDialog(
             onDismissRequest = { picking = null },
             confirmButton = {
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.let { millis ->
                         val date = millis.toPickerDate()
-                        if (which == "from") viewModel.setCustomFrom(date) else viewModel.setCustomTo(date)
+                        if (which == "from") viewModel.setCustomFrom(date) else viewModel.setCustomTo(
+                            date
+                        )
                     }
                     picking = null
                 }) { Text(stringResource(R.string.report_ok)) }
             },
-            dismissButton = { TextButton(onClick = { picking = null }) { Text(stringResource(R.string.report_cancel)) } },
+            dismissButton = {
+                TextButton(onClick = {
+                    picking = null
+                }) { Text(stringResource(R.string.report_cancel)) }
+            },
         ) { DatePicker(state = pickerState) }
     }
 }
@@ -185,11 +214,23 @@ private fun KindSwitcher(selected: ReportKind, onSelect: (ReportKind) -> Unit) {
 private fun Navigator(label: String, onPrevious: () -> Unit, onNext: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onPrevious) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.report_previous))
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = stringResource(R.string.report_previous)
+            )
         }
-        Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
         IconButton(onClick = onNext) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.report_next))
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = stringResource(R.string.report_next)
+            )
         }
     }
 }
@@ -203,12 +244,25 @@ private fun DateChip(label: String, value: String, modifier: Modifier, onClick: 
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         modifier = modifier,
     ) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Column(Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Text(value, style = MaterialTheme.typography.bodyMedium)
             }
-            Icon(Icons.Filled.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                Icons.Filled.CalendarMonth,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -222,10 +276,22 @@ private fun SummaryCard(report: Report, kind: ReportKind, currency: String) {
             ReportKind.CUSTOM -> R.string.report_unit_period
         },
     )
-    Surface(shape = RoundedCornerShape(32.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(32.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(R.string.report_total), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
-            Text(Money.formatWithSymbol(report.total, currency), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text(
+                stringResource(R.string.report_total),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Text(
+                Money.formatWithSymbol(report.total, currency),
+                style = MaterialTheme.typography.displaySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
             val delta = report.deltaPercent
             val text = when {
                 delta == null -> null
@@ -234,8 +300,15 @@ private fun SummaryCard(report: Report, kind: ReportKind, currency: String) {
                 else -> stringResource(R.string.report_delta_same, unit)
             }
             if (text != null) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)) {
-                    Text(text, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                ) {
+                    Text(
+                        text,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
                 }
             }
             if (kind == ReportKind.CUSTOM) {
@@ -267,29 +340,68 @@ private fun Tiles(report: Report, kind: ReportKind, currency: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Tile(stringResource(R.string.report_count), report.count.toString(), Modifier.weight(1f))
         if (kind == ReportKind.YEAR) {
-            Tile(stringResource(R.string.report_avg_month), Money.formatWithSymbol(report.averagePerMonth, currency), Modifier.weight(1.4f))
+            Tile(
+                stringResource(R.string.report_avg_month),
+                Money.formatWithSymbol(report.averagePerMonth, currency),
+                Modifier.weight(1.4f)
+            )
         } else {
-            Tile(stringResource(R.string.report_avg_day), Money.formatWithSymbol(report.averagePerDay, currency), Modifier.weight(1.4f))
+            Tile(
+                stringResource(R.string.report_avg_day),
+                Money.formatWithSymbol(report.averagePerDay, currency),
+                Modifier.weight(1.4f)
+            )
         }
-        Tile(stringResource(peakTitle), peak?.let { bucketLabel(it, report.trendUnit) } ?: stringResource(R.string.report_none), Modifier.weight(1.2f))
+        Tile(
+            stringResource(peakTitle),
+            peak?.let { bucketLabel(it, report.trendUnit) } ?: stringResource(R.string.report_none),
+            Modifier.weight(1.2f))
     }
 }
 
 @Composable
 private fun Tile(label: String, value: String, modifier: Modifier) {
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = modifier) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = modifier
+    ) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(value, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
 
 @Composable
 private fun EmptyReport() {
-    Column(Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.report_empty_title), style = MaterialTheme.typography.titleMedium)
-        Text(stringResource(R.string.report_empty_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            stringResource(R.string.report_empty_title),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            stringResource(R.string.report_empty_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -300,7 +412,11 @@ private fun TrendCard(report: Report, currency: String, today: LocalDate) {
     val trend = report.trend
     val max = trend.maxOfOrNull { it.amount }?.takeIf { it > 0 } ?: 1L
     var selected by remember(report.range) { mutableStateOf<Int?>(null) }
-    Surface(shape = RoundedCornerShape(28.dp), color = colors.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = colors.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
@@ -317,7 +433,10 @@ private fun TrendCard(report: Report, currency: String, today: LocalDate) {
                 selected?.let { index ->
                     val bucket = trend[index]
                     Text(
-                        bucketLabel(bucket, report.trendUnit) + " · " + Money.formatWithSymbol(bucket.amount, currency),
+                        bucketLabel(bucket, report.trendUnit) + " · " + Money.formatWithSymbol(
+                            bucket.amount,
+                            currency
+                        ),
                         style = MaterialTheme.typography.labelLarge,
                         color = colors.primary,
                     )
@@ -326,20 +445,27 @@ private fun TrendCard(report: Report, currency: String, today: LocalDate) {
             val barColor = colors.primaryContainer
             val selectedColor = colors.primary
             val emptyColor = colors.outlineVariant
-            val peakIndex = report.peak?.let { peak -> trend.indexOfFirst { it.start == peak.start } }
+            val peakIndex =
+                report.peak?.let { peak -> trend.indexOfFirst { it.start == peak.start } }
             Canvas(
-                Modifier.fillMaxWidth().height(120.dp).pointerInput(trend) {
-                    detectTapGestures { offset ->
-                        val index = (offset.x / (size.width / trend.size)).toInt().coerceIn(0, trend.size - 1)
-                        selected = if (selected == index) null else index
-                    }
-                },
+                Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .pointerInput(trend) {
+                        detectTapGestures { offset ->
+                            val index = (offset.x / (size.width / trend.size)).toInt()
+                                .coerceIn(0, trend.size - 1)
+                            selected = if (selected == index) null else index
+                        }
+                    },
             ) {
                 val slot = size.width / trend.size
                 val gap = slot * 0.25f
                 val barWidth = slot - gap
                 trend.forEachIndexed { i, bucket ->
-                    val height = if (bucket.amount <= 0) 3.dp.toPx() else (size.height * bucket.amount / max).toFloat().coerceAtLeast(6.dp.toPx())
+                    val height =
+                        if (bucket.amount <= 0) 3.dp.toPx() else (size.height * bucket.amount / max).toFloat()
+                            .coerceAtLeast(6.dp.toPx())
                     val color = when {
                         i == (selected ?: peakIndex) -> selectedColor
                         bucket.amount <= 0 -> emptyColor
@@ -365,14 +491,34 @@ private fun TrendCard(report: Report, currency: String, today: LocalDate) {
                         )
                     }
                 }
-                TrendUnit.DAY -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+
+                TrendUnit.DAY -> Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     listOf(trend.first(), trend[trend.size / 2], trend.last()).forEach {
-                        Text(it.start.dayOfMonth.toString(), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                        Text(
+                            it.start.dayOfMonth.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.onSurfaceVariant
+                        )
                     }
                 }
-                TrendUnit.WEEK -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(trend.first().start.format(DayMonth), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
-                    Text(trend.last().end.format(DayMonth), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+
+                TrendUnit.WEEK -> Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        trend.first().start.format(DayMonth),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSurfaceVariant
+                    )
+                    Text(
+                        trend.last().end.format(DayMonth),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -380,18 +526,42 @@ private fun TrendCard(report: Report, currency: String, today: LocalDate) {
 }
 
 @Composable
-private fun CategoryCard(shares: List<CategoryShare>, categories: Map<String, Category>, currency: String, onClick: (CategoryShare) -> Unit) {
+private fun CategoryCard(
+    shares: List<CategoryShare>,
+    categories: Map<String, Category>,
+    currency: String,
+    onClick: (CategoryShare) -> Unit
+) {
     val colors = MaterialTheme.colorScheme
-    Surface(shape = RoundedCornerShape(28.dp), color = colors.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = colors.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(stringResource(R.string.report_by_category), style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+            Text(
+                stringResource(R.string.report_by_category),
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.onSurfaceVariant
+            )
             // The share bar: one segment per row, as wide as its amount.
-            Row(Modifier.fillMaxWidth().height(14.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 shares.forEach { share ->
                     val category = share.categoryId?.let { categories[it] }
                     Box(
-                        Modifier.weight(share.amount.toFloat().coerceAtLeast(1f)).height(14.dp)
-                            .background(CategoryColors.parse(category?.color ?: CategoryColors.DEFAULT), CircleShape),
+                        Modifier
+                            .weight(share.amount.toFloat().coerceAtLeast(1f))
+                            .height(14.dp)
+                            .background(
+                                CategoryColors.parse(
+                                    category?.color ?: CategoryColors.DEFAULT
+                                ), CircleShape
+                            ),
                     )
                 }
             }
@@ -404,20 +574,42 @@ private fun CategoryCard(shares: List<CategoryShare>, categories: Map<String, Ca
                     else -> category.name
                 }
                 Row(
-                    Modifier.fillMaxWidth().then(if (merged) Modifier else Modifier.clickable { onClick(share) }).padding(vertical = 2.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .then(if (merged) Modifier else Modifier.clickable { onClick(share) })
+                        .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Box(Modifier.size(12.dp).background(CategoryColors.parse(category?.color ?: CategoryColors.DEFAULT), CircleShape))
+                    Box(
+                        Modifier
+                            .size(12.dp)
+                            .background(
+                                CategoryColors.parse(category?.color ?: CategoryColors.DEFAULT),
+                                CircleShape
+                            )
+                    )
                     Column(Modifier.weight(1f)) {
-                        Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            stringResource(R.string.report_category_row, share.percent, share.count),
+                            name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            stringResource(
+                                R.string.report_category_row,
+                                share.percent,
+                                share.count
+                            ),
                             style = MaterialTheme.typography.labelSmall,
                             color = colors.onSurfaceVariant,
                         )
                     }
-                    Text(Money.formatWithSymbol(share.amount, currency), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        Money.formatWithSymbol(share.amount, currency),
+                        style = MaterialTheme.typography.titleSmall
+                    )
                 }
             }
         }
@@ -439,16 +631,26 @@ fun ReportCategoryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = MaterialTheme.colorScheme
-    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val locale = LocalLocale.current
     val title = state.category?.name ?: stringResource(R.string.report_other)
     Surface(modifier = Modifier.fillMaxSize(), color = colors.surface) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Row(Modifier.padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier
+            .fillMaxSize()
+            .statusBarsPadding()) {
+            Row(
+                Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.report_back))
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.report_back)
+                    )
                 }
                 Text(
-                    title + " · " + LocalDate.parse(from).format(DayMonth) + "–" + LocalDate.parse(to).format(DayMonthYear),
+                    title + " · " + LocalDate.parse(from).format(DayMonth) + "–" + LocalDate.parse(
+                        to
+                    ).format(DayMonthYear),
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -459,15 +661,32 @@ fun ReportCategoryScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item(key = "summary") {
-                    Surface(shape = RoundedCornerShape(28.dp), color = colors.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        shape = RoundedCornerShape(28.dp),
+                        color = colors.primaryContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Row(Modifier.padding(20.dp), verticalAlignment = Alignment.Bottom) {
                             Column(Modifier.weight(1f)) {
-                                Text(stringResource(R.string.report_total), style = MaterialTheme.typography.labelLarge, color = colors.onPrimaryContainer)
-                                Text(Money.formatWithSymbol(state.total, state.currency), style = MaterialTheme.typography.headlineMedium, color = colors.onPrimaryContainer)
+                                Text(
+                                    stringResource(R.string.report_total),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = colors.onPrimaryContainer
+                                )
+                                Text(
+                                    Money.formatWithSymbol(state.total, state.currency),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    color = colors.onPrimaryContainer
+                                )
                             }
-                            val percent = state.rangeTotal.takeIf { it > 0 }?.let { (state.total * 100 / it).toInt() } ?: 0
+                            val percent = state.rangeTotal.takeIf { it > 0 }
+                                ?.let { (state.total * 100 / it).toInt() } ?: 0
                             Text(
-                                stringResource(R.string.report_detail_summary, state.count, percent),
+                                stringResource(
+                                    R.string.report_detail_summary,
+                                    state.count,
+                                    percent
+                                ),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = colors.onPrimaryContainer,
                             )
@@ -479,11 +698,27 @@ fun ReportCategoryScreen(
                         val name = when (group.date) {
                             state.today -> stringResource(R.string.report_today)
                             state.today.minusDays(1) -> stringResource(R.string.report_yesterday)
-                            else -> group.date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
+                            else -> group.date.dayOfWeek.getDisplayName(
+                                TextStyle.SHORT,
+                                locale.platformLocale
+                            )
                         }
-                        Row(Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp, end = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("$name · " + group.date.format(DayMonth), style = MaterialTheme.typography.titleSmall, color = colors.onSurfaceVariant)
-                            Text(Money.formatWithSymbol(group.total, state.currency), style = MaterialTheme.typography.titleSmall, color = colors.onSurfaceVariant)
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp, start = 4.dp, end = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "$name · " + group.date.format(DayMonth),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = colors.onSurfaceVariant
+                            )
+                            Text(
+                                Money.formatWithSymbol(group.total, state.currency),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = colors.onSurfaceVariant
+                            )
                         }
                     }
                     items(group.items, key = { it.id }) { expense ->
@@ -496,15 +731,43 @@ fun ReportCategoryScreen(
 }
 
 @Composable
-private fun DetailRow(expense: Expense, category: Category?, currency: String, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+private fun DetailRow(
+    expense: Expense,
+    category: Category?,
+    currency: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             CategoryAvatar(category?.icon, category?.color)
             Column(Modifier.weight(1f)) {
-                Text(expense.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                category?.let { Text(it.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Text(
+                    expense.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                category?.let {
+                    Text(
+                        it.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            Text("−" + Money.formatWithSymbol(expense.amount, currency), style = MaterialTheme.typography.titleMedium)
+            Text(
+                "−" + Money.formatWithSymbol(expense.amount, currency),
+                style = MaterialTheme.typography.titleMedium
+            )
         }
     }
 }

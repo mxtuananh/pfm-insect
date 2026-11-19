@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -57,10 +58,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hopper.pfm.insect.core.model.UserProfile
-import hopper.pfm.insect.core.ui.floatingBarSpace
 import hopper.pfm.insect.core.ui.PfmBanner
 import hopper.pfm.insect.core.ui.PfmPrimaryButton
 import hopper.pfm.insect.core.ui.PfmTextField
+import hopper.pfm.insect.core.ui.floatingBarSpace
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -75,15 +76,18 @@ data class ProfileLinks(
 
 private fun gmtOffset(zoneId: String): String = try {
     val offset = ZonedDateTime.now(ZoneId.of(zoneId)).offset.id
-    "GMT" + if (offset == "Z") "+0" else offset.replace(":00", "").replace("+0", "+").replace("-0", "-")
-} catch (e: Exception) {
+    "GMT" + if (offset == "Z") "+0" else offset.replace(":00", "").replace("+0", "+")
+        .replace("-0", "-")
+} catch (_: Exception) {
     zoneId
 }
 
 @Composable
 private fun Avatar(name: String, size: Int, modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier.size(size.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
+        modifier = modifier
+            .size(size.dp)
+            .background(MaterialTheme.colorScheme.primary, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -98,24 +102,54 @@ private fun Avatar(name: String, size: Int, modifier: Modifier = Modifier) {
 @Composable
 fun ProfileScreen(
     onEdit: () -> Unit,
-    links: ProfileLinks = ProfileLinks(),
     modifier: Modifier = Modifier,
+    links: ProfileLinks = ProfileLinks(),
+    contentPadding: PaddingValues = PaddingValues(),
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     val pending by viewModel.pendingChanges.collectAsStateWithLifecycle()
     var askLogout by rememberSaveable { mutableStateOf(false) }
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ProfileCard(profile, onEdit)
         Spacer(Modifier.height(8.dp))
-        ProfileRow(Icons.Filled.Category, stringResource(R.string.profile_categories), stringResource(R.string.profile_categories_sub), links.onCategories)
-        ProfileRow(Icons.Filled.Repeat, stringResource(R.string.profile_habits), stringResource(R.string.profile_habits_sub), links.onHabits)
-        ProfileRow(Icons.Filled.Notifications, stringResource(R.string.profile_notifications), stringResource(R.string.profile_notifications_sub), links.onNotifications)
-        ProfileRow(Icons.Filled.Sync, stringResource(R.string.profile_sync), stringResource(R.string.profile_sync_sub), links.onSync)
-        ProfileRow(Icons.Filled.Settings, stringResource(R.string.profile_settings), stringResource(R.string.profile_settings_sub), links.onSettings)
+        ProfileRow(
+            Icons.Filled.Category,
+            stringResource(R.string.profile_categories),
+            stringResource(R.string.profile_categories_sub),
+            links.onCategories
+        )
+        ProfileRow(
+            Icons.Filled.Repeat,
+            stringResource(R.string.profile_habits),
+            stringResource(R.string.profile_habits_sub),
+            links.onHabits
+        )
+        ProfileRow(
+            Icons.Filled.Notifications,
+            stringResource(R.string.profile_notifications),
+            stringResource(R.string.profile_notifications_sub),
+            links.onNotifications
+        )
+        ProfileRow(
+            Icons.Filled.Sync,
+            stringResource(R.string.profile_sync),
+            stringResource(R.string.profile_sync_sub),
+            links.onSync
+        )
+        ProfileRow(
+            Icons.Filled.Settings,
+            stringResource(R.string.profile_settings),
+            stringResource(R.string.profile_settings_sub),
+            links.onSettings
+        )
         ProfileRow(
             Icons.AutoMirrored.Filled.Logout,
             stringResource(R.string.profile_logout),
@@ -138,25 +172,42 @@ fun ProfileScreen(
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
-                    OutlinedButton(onClick = { askLogout = false; viewModel.logout(false) }, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { askLogout = false; viewModel.logout(false) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text(stringResource(R.string.logout_this_device))
                     }
-                    OutlinedButton(onClick = { askLogout = false; viewModel.logout(true) }, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { askLogout = false; viewModel.logout(true) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text(stringResource(R.string.logout_all_devices))
                     }
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = { askLogout = false }) { Text(stringResource(R.string.common_cancel)) } },
+            dismissButton = {
+                TextButton(onClick = {
+                    askLogout = false
+                }) { Text(stringResource(R.string.common_cancel)) }
+            },
         )
     }
 }
 
 @Composable
 private fun ProfileCard(profile: UserProfile?, onEdit: () -> Unit) {
-    Surface(shape = RoundedCornerShape(32.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(32.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 Avatar(profile?.name.orEmpty(), 64)
                 Column {
                     Text(
@@ -171,7 +222,10 @@ private fun ProfileCard(profile: UserProfile?, onEdit: () -> Unit) {
                     )
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 profile?.let {
                     Chip(gmtOffset(it.timezone))
                     Chip(it.currency)
@@ -190,29 +244,67 @@ private fun ProfileCard(profile: UserProfile?, onEdit: () -> Unit) {
 @Composable
 private fun Chip(text: String) {
     Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface) {
-        Text(text, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+        )
     }
 }
 
 @Composable
-private fun ProfileRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit, danger: Boolean = false) {
-    val container = if (danger) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer
-    val onContainer = if (danger) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
+private fun ProfileRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    danger: Boolean = false
+) {
+    val container =
+        if (danger) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer
+    val onContainer =
+        if (danger) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(28.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(40.dp).background(container, CircleShape), contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = onContainer, modifier = Modifier.size(22.dp))
+        Row(
+            Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .background(container, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = onContainer,
+                    modifier = Modifier.size(22.dp)
+                )
             }
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge, color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            if (!danger) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (!danger) Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -224,15 +316,31 @@ fun EditProfileScreen(onBack: () -> Unit, viewModel: EditProfileViewModel = hilt
     LaunchedEffect(state.saved) { if (state.saved) onBack() }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
-            Row(Modifier.padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()) {
+            Row(
+                Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.common_back)
+                    )
                 }
-                Text(stringResource(R.string.edit_profile_title), style = MaterialTheme.typography.titleLarge)
+                Text(
+                    stringResource(R.string.edit_profile_title),
+                    style = MaterialTheme.typography.titleLarge
+                )
             }
             Column(
-                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Avatar(state.name, 64)
@@ -243,7 +351,11 @@ fun EditProfileScreen(onBack: () -> Unit, viewModel: EditProfileViewModel = hilt
                     modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
                 )
                 state.error?.let {
-                    PfmBanner(stringResource(it.res), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+                    PfmBanner(
+                        stringResource(it.res),
+                        MaterialTheme.colorScheme.errorContainer,
+                        MaterialTheme.colorScheme.onErrorContainer
+                    )
                     Spacer(Modifier.height(16.dp))
                 }
                 PfmTextField(
@@ -271,7 +383,9 @@ fun EditProfileScreen(onBack: () -> Unit, viewModel: EditProfileViewModel = hilt
                         label = stringResource(R.string.edit_timezone),
                         readOnly = true,
                     )
-                    Box(Modifier.matchParentSize().clickable { pickingZone = true })
+                    Box(Modifier
+                        .matchParentSize()
+                        .clickable { pickingZone = true })
                 }
                 Spacer(Modifier.height(16.dp))
                 Text(
@@ -280,7 +394,12 @@ fun EditProfileScreen(onBack: () -> Unit, viewModel: EditProfileViewModel = hilt
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     SupportedCurrencies.forEach { code ->
                         FilterChip(
                             selected = state.currency == code,
@@ -313,20 +432,33 @@ fun EditProfileScreen(onBack: () -> Unit, viewModel: EditProfileViewModel = hilt
 private fun TimezonePicker(zones: List<String>, onPick: (String) -> Unit, onDismiss: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     val filtered = remember(query, zones) {
-        if (query.isBlank()) zones else zones.filter { it.contains(query.trim(), ignoreCase = true) }
+        if (query.isBlank()) zones else zones.filter {
+            it.contains(
+                query.trim(),
+                ignoreCase = true
+            )
+        }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_timezone)) },
         text = {
             Column {
-                PfmTextField(value = query, onValueChange = { query = it }, label = stringResource(R.string.edit_search_timezone), imeAction = ImeAction.Done)
+                PfmTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = stringResource(R.string.edit_search_timezone),
+                    imeAction = ImeAction.Done
+                )
                 LazyColumn(Modifier.height(280.dp)) {
                     items(filtered) { zone ->
                         Text(
                             "$zone  (${gmtOffset(zone)})",
                             style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.fillMaxWidth().clickable { onPick(zone) }.padding(vertical = 12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(zone) }
+                                .padding(vertical = 12.dp),
                         )
                     }
                 }

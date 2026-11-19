@@ -3,11 +3,17 @@ package hopper.pfm.insect
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
@@ -24,9 +30,9 @@ import hopper.pfm.insect.feature.category.CategoryEditScreen
 import hopper.pfm.insect.feature.category.CategoryListScreen
 import hopper.pfm.insect.feature.expense.ExpenseFormScreen
 import hopper.pfm.insect.feature.habit.HabitEditScreen
+import hopper.pfm.insect.feature.habit.HabitListScreen
 import hopper.pfm.insect.feature.notification.NotificationCenterScreen
 import hopper.pfm.insect.feature.report.ReportCategoryScreen
-import hopper.pfm.insect.feature.habit.HabitListScreen
 import hopper.pfm.insect.shell.MainShell
 import hopper.pfm.insect.shell.SplashScreen
 import hopper.pfm.insect.shell.StartDestination
@@ -61,7 +67,8 @@ data class ExpenseFormKey(val expenseId: String? = null) : NavKey
 data class BudgetEditKey(val budgetId: String? = null) : NavKey
 
 @Serializable
-data class ReportCategoryKey(val categoryId: String? = null, val from: String, val to: String) : NavKey
+data class ReportCategoryKey(val categoryId: String? = null, val from: String, val to: String) :
+    NavKey
 
 @Serializable
 data object NotificationsKey : NavKey
@@ -79,8 +86,8 @@ data object CategoriesKey : NavKey
 data class CategoryEditKey(val categoryId: String? = null) : NavKey
 
 /**
- * Root navigation. Splash checks GET /health (minAppVersion) and the stored session. Afterwards the session state
- * decides the root: signed out goes to Login, an expired session to the re-login screen, signed in to Main.
+ * Root navigation. Splash checks GET /health (minAppVersion) and the stored session. Afterward the session state
+ * decides the root: signed out goes to Log in, an expired session to the re-login screen, signed in to Main.
  */
 @Composable
 fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
@@ -92,7 +99,8 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
     // A tap on a system notification: open the notification center once the app is on its main screen.
     LaunchedEffect(openNotifications, backStack.lastOrNull()) {
         val top = backStack.lastOrNull()
-        val gate = top == SplashKey || top == LoginKey || top == RegisterKey || top == SessionExpiredKey || top == UpdateRequiredKey
+        val gate =
+            top == SplashKey || top == LoginKey || top == RegisterKey || top == SessionExpiredKey || top == UpdateRequiredKey
         if (openNotifications && !gate && top != null) {
             if (top != NotificationsKey) backStack.add(NotificationsKey)
             appViewModel.openNotificationsHandled()
@@ -123,6 +131,18 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
     NavDisplay(
         backStack = backStack,
         onBack = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+        transitionSpec = {
+            ContentTransform(
+                targetContentEnter = slideInHorizontally(animationSpec = tween(durationMillis = 500)) { it },
+                initialContentExit = fadeOut(animationSpec = tween(durationMillis = 350))
+            )
+        },
+        popTransitionSpec = {
+            ContentTransform(
+                targetContentEnter = fadeIn(animationSpec = tween(durationMillis = 350)),
+                initialContentExit = slideOutHorizontally(animationSpec = tween(durationMillis = 500)) { it }
+            )
+        },
         entryProvider = entryProvider {
             entry<SplashKey> {
                 SplashScreen(
@@ -154,7 +174,15 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
                     onHabits = { backStack.add(HabitsKey) },
                     onAddBudget = { backStack.add(BudgetEditKey()) },
                     onEditBudget = { backStack.add(BudgetEditKey(it)) },
-                    onReportCategory = { id, from, to -> backStack.add(ReportCategoryKey(id, from, to)) },
+                    onReportCategory = { id, from, to ->
+                        backStack.add(
+                            ReportCategoryKey(
+                                id,
+                                from,
+                                to
+                            )
+                        )
+                    },
                     onOpenNotifications = { backStack.add(NotificationsKey) },
                 )
             }
@@ -167,7 +195,9 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
                 )
             }
             entry<BudgetEditKey> { key ->
-                BudgetEditScreen(budgetId = key.budgetId, onBack = { backStack.removeAt(backStack.lastIndex) })
+                BudgetEditScreen(
+                    budgetId = key.budgetId,
+                    onBack = { backStack.removeAt(backStack.lastIndex) })
             }
             entry<NotificationsKey> {
                 NotificationCenterScreen(
@@ -204,7 +234,9 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
                 )
             }
             entry<CategoryEditKey> { key ->
-                CategoryEditScreen(categoryId = key.categoryId, onBack = { backStack.removeAt(backStack.lastIndex) })
+                CategoryEditScreen(
+                    categoryId = key.categoryId,
+                    onBack = { backStack.removeAt(backStack.lastIndex) })
             }
             entry<EditProfileKey> { EditProfileScreen(onBack = { backStack.removeAt(backStack.lastIndex) }) }
             entry<UpdateRequiredKey> { UpdateRequiredScreen(onUpdate = { openStore(context) }) }
@@ -214,11 +246,12 @@ fun PfmApp(appViewModel: AppViewModel = hiltViewModel()) {
 
 private fun openStore(context: Context) {
     val id = context.packageName
-    val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$id"))
-    val web = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$id"))
     try {
+        val market = Intent(Intent.ACTION_VIEW, "market://details?id=$id".toUri())
         context.startActivity(market)
-    } catch (e: ActivityNotFoundException) {
+    } catch (_: ActivityNotFoundException) {
+        val web =
+            Intent(Intent.ACTION_VIEW, "https://play.google.com/store/apps/details?id=$id".toUri())
         context.startActivity(web)
     }
 }

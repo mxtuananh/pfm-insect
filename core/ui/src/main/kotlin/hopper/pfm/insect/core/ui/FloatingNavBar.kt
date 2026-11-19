@@ -1,5 +1,7 @@
 package hopper.pfm.insect.core.ui
 
+import androidx.annotation.StringRes
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -31,6 +33,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.DefaultShadowColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,7 +46,7 @@ import dev.chrisbanes.haze.hazeEffect
 val FloatingBarContentPadding = 120.dp
 
 data class NavBarItem(
-    val label: String,
+    @StringRes val labelId: Int,
     val icon: ImageVector,
     val selectedIcon: ImageVector = icon,
 )
@@ -122,7 +125,10 @@ fun FloatingNavBar(
 @Composable
 private fun NavSlot(item: NavBarItem, selected: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val contentColor = if (selected) colors.onSecondaryContainer else colors.onSurfaceVariant
+    val contentColor by animateColorAsState (
+        targetValue = if (selected) colors.onSecondaryContainer else colors.onSurfaceVariant,
+        label = "contentColor"
+    )
     Box(
         modifier = Modifier
             .clip(CircleShape)
@@ -139,7 +145,7 @@ private fun NavSlot(item: NavBarItem, selected: Boolean, onClick: () -> Unit) {
                 modifier = Modifier.size(24.dp),
             )
             Text(
-                text = item.label,
+                text = stringResource(item.labelId),
                 style = MaterialTheme.typography.labelSmall,
                 color = contentColor,
                 maxLines = 1,

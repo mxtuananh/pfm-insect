@@ -24,10 +24,16 @@ import hopper.pfm.insect.core.domain.sync.SyncProblem
 
 /** Top bar indicator: syncing, waiting, offline, rejected or all synced. Tapping it syncs now. */
 @Composable
-fun SyncIndicator(viewModel: SyncStatusViewModel = hiltViewModel()) {
+fun SyncIndicator(
+    modifier: Modifier = Modifier,
+    viewModel: SyncStatusViewModel = hiltViewModel()
+) {
     val overview by viewModel.overview.collectAsStateWithLifecycle()
     val colors = MaterialTheme.colorScheme
-    IconButton(onClick = viewModel::syncNow) {
+    IconButton(
+        modifier = modifier,
+        onClick = viewModel::syncNow
+    ) {
         when {
             overview.syncing -> {
                 Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
