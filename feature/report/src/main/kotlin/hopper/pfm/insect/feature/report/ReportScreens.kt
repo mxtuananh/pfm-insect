@@ -1,5 +1,8 @@
 package hopper.pfm.insect.feature.report
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -36,6 +40,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +50,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -91,79 +98,91 @@ fun ReportScreen(
     var picking by rememberSaveable { mutableStateOf<String?>(null) } // "from" or "to"
     val report = state.report
 
-    LazyColumn(
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp) + contentPadding,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = modifier.fillMaxSize(),
+    Box(
+        modifier = modifier
+            .fillMaxSize()
     ) {
-        item(key = "switch") { KindSwitcher(state.kind, viewModel::setKind) }
-        item(key = "range") {
-            when (state.kind) {
-                ReportKind.MONTH -> Navigator(
-                    label = stringResource(
-                        R.string.report_month_label,
-                        state.month.format(DateTimeFormatter.ofPattern("MM/yyyy"))
-                    ),
-                    onPrevious = { viewModel.shift(-1) },
-                    onNext = { viewModel.shift(1) },
-                )
+        LazyColumn(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 60.dp) + contentPadding,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            item(key = "range") {
+                when (state.kind) {
+                    ReportKind.MONTH -> Navigator(
+                        label = stringResource(
+                            R.string.report_month_label,
+                            state.month.format(DateTimeFormatter.ofPattern("MM/yyyy"))
+                        ),
+                        onPrevious = { viewModel.shift(-1) },
+                        onNext = { viewModel.shift(1) },
+                    )
 
-                ReportKind.YEAR -> Navigator(
-                    label = stringResource(R.string.report_year_label, state.year),
-                    onPrevious = { viewModel.shift(-1) },
-                    onNext = { viewModel.shift(1) },
-                )
+                    ReportKind.YEAR -> Navigator(
+                        label = stringResource(R.string.report_year_label, state.year),
+                        onPrevious = { viewModel.shift(-1) },
+                        onNext = { viewModel.shift(1) },
+                    )
 
-                ReportKind.CUSTOM -> Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    DateChip(
-                        stringResource(R.string.report_from),
-                        state.customFrom.format(DayMonthYear),
-                        Modifier.weight(1f)
-                    ) { picking = "from" }
-                    DateChip(
-                        stringResource(R.string.report_to),
-                        state.customTo.format(DayMonthYear),
-                        Modifier.weight(1f)
-                    ) { picking = "to" }
+                    ReportKind.CUSTOM -> Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        DateChip(
+                            stringResource(R.string.report_from),
+                            state.customFrom.format(DayMonthYear),
+                            Modifier.weight(1f)
+                        ) { picking = "from" }
+                        DateChip(
+                            stringResource(R.string.report_to),
+                            state.customTo.format(DayMonthYear),
+                            Modifier.weight(1f)
+                        ) { picking = "to" }
+                    }
                 }
             }
-        }
-        state.problem?.let { problem ->
-            item(key = "problem") {
-                Text(
-                    stringResource(if (problem == RangeProblem.FromAfterTo) R.string.report_error_from_after_to else R.string.report_error_too_long),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                )
-            }
-        }
-        if (report != null) {
-            item(key = "summary") { SummaryCard(report, state.kind, state.currency) }
-            item(key = "tiles") { Tiles(report, state.kind, state.currency) }
-            if (report.total <= 0) {
-                item(key = "empty") { EmptyReport() }
-            } else {
-                item(key = "trend") { TrendCard(report, state.currency, state.today) }
-                item(key = "categories") {
-                    CategoryCard(
-                        shares = report.categories,
-                        categories = state.categories,
-                        currency = state.currency,
-                        onClick = { share ->
-                            onCategory(
-                                share.categoryId,
-                                report.range.start.toString(),
-                                report.range.end.toString()
-                            )
-                        },
+            state.problem?.let { problem ->
+                item(key = "problem") {
+                    Text(
+                        stringResource(if (problem == RangeProblem.FromAfterTo) R.string.report_error_from_after_to else R.string.report_error_too_long),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 8.dp),
                     )
                 }
             }
+            if (report != null) {
+                item(key = "summary") { SummaryCard(report, state.kind, state.currency) }
+                item(key = "tiles") { Tiles(report, state.kind, state.currency) }
+                if (report.total <= 0) {
+                    item(key = "empty") { EmptyReport() }
+                } else {
+                    item(key = "trend") { TrendCard(report, state.currency, state.today) }
+                    item(key = "categories") {
+                        CategoryCard(
+                            shares = report.categories,
+                            categories = state.categories,
+                            currency = state.currency,
+                            onClick = { share ->
+                                onCategory(
+                                    share.categoryId,
+                                    report.range.start.toString(),
+                                    report.range.end.toString()
+                                )
+                            },
+                        )
+                    }
+                }
+            }
         }
+
+        KindSwitcher(
+            selected = state.kind,
+            onSelect = viewModel::setKind,
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .padding(top = contentPadding.calculateTopPadding())
+        )
     }
 
     picking?.let { which ->
@@ -192,20 +211,57 @@ fun ReportScreen(
     }
 }
 
+val options = listOf(
+    ReportKind.MONTH to R.string.report_kind_month,
+    ReportKind.YEAR to R.string.report_kind_year,
+    ReportKind.CUSTOM to R.string.report_kind_custom,
+)
 @Composable
-private fun KindSwitcher(selected: ReportKind, onSelect: (ReportKind) -> Unit) {
-    val options = listOf(
-        ReportKind.MONTH to R.string.report_kind_month,
-        ReportKind.YEAR to R.string.report_kind_year,
-        ReportKind.CUSTOM to R.string.report_kind_custom,
+private fun KindSwitcher(
+    selected: ReportKind,
+    onSelect: (ReportKind) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val selectedBg = MaterialTheme.colorScheme.secondaryContainer
+    val offsetXMultiplier by animateFloatAsState(
+        targetValue = selected.ordinal.toFloat(),
+        label = "offsetXMultiplier",
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)
     )
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        options.forEachIndexed { index, (kind, label) ->
-            SegmentedButton(
-                selected = selected == kind,
-                onClick = { onSelect(kind) },
-                shape = SegmentedButtonDefaults.itemShape(index, options.size),
-            ) { Text(stringResource(label)) }
+    Row(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .fillMaxWidth()
+            .height(48.dp)
+            .padding(4.dp)
+            .drawBehind {
+                drawRoundRect(
+                    color = selectedBg,
+                    topLeft = Offset(x = offsetXMultiplier * (size.width / options.size), y = 0f),
+                    size = size.copy(width = size.width / options.size),
+                    cornerRadius = CornerRadius(size.height / 2f)
+                )
+            }
+    ) {
+        options.forEach { (type, labelResId) ->
+            val isSelected = selected == type
+            Text(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(CircleShape)
+                    .fillMaxSize()
+                    .clickable(enabled = !isSelected) {
+                        onSelect(type)
+                    }
+                    .wrapContentSize(align = Alignment.Center),
+                text = stringResource(labelResId),
+                style = MaterialTheme.typography.labelLarge,
+                color = when {
+                    isSelected -> contentColorFor(selectedBg)
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
         }
     }
 }
