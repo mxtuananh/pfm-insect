@@ -176,7 +176,7 @@ fun BudgetListScreen(
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = contentPadding.calculateBottomPadding() - 16.dp),
+                    .padding(end = 16.dp, bottom = contentPadding.calculateBottomPadding()),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.budget_add))
             }
