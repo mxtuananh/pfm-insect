@@ -29,19 +29,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.contentColorFor
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,18 +66,17 @@ import hopper.pfm.insect.core.model.Category
 import hopper.pfm.insect.core.model.Expense
 import hopper.pfm.insect.core.ui.CategoryAvatar
 import hopper.pfm.insect.core.ui.CategoryColors
-import java.time.Instant
+import hopper.pfm.insect.core.ui.DatePickerModal
 import java.time.LocalDate
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 
-private fun LocalDate.toPickerMillis() = atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-private fun Long.toPickerDate(): LocalDate =
-    Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
-
 private val DayMonth: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM")
 private val DayMonthYear: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
+private enum class ReportDateRangeType {
+    FROM, TO
+}
 
 /** Content of the Báo cáo tab (the shell draws the top bar and the floating bar). */
 @Composable
@@ -95,7 +87,7 @@ fun ReportScreen(
     viewModel: ReportViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var picking by rememberSaveable { mutableStateOf<String?>(null) } // "from" or "to"
+    var picking by rememberSaveable { mutableStateOf<ReportDateRangeType?>(null) } // "from" or "to"
     val report = state.report
 
     Box(
@@ -132,12 +124,12 @@ fun ReportScreen(
                             stringResource(R.string.report_from),
                             state.customFrom.format(DayMonthYear),
                             Modifier.weight(1f)
-                        ) { picking = "from" }
+                        ) { picking = ReportDateRangeType.FROM }
                         DateChip(
                             stringResource(R.string.report_to),
                             state.customTo.format(DayMonthYear),
                             Modifier.weight(1f)
-                        ) { picking = "to" }
+                        ) { picking = ReportDateRangeType.TO }
                     }
                 }
             }
@@ -186,28 +178,24 @@ fun ReportScreen(
     }
 
     picking?.let { which ->
-        val initial = if (which == "from") state.customFrom else state.customTo
-        val pickerState =
-            rememberDatePickerState(initialSelectedDateMillis = initial.toPickerMillis())
-        DatePickerDialog(
-            onDismissRequest = { picking = null },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { millis ->
-                        val date = millis.toPickerDate()
-                        if (which == "from") viewModel.setCustomFrom(date) else viewModel.setCustomTo(
-                            date
-                        )
-                    }
-                    picking = null
-                }) { Text(stringResource(R.string.report_ok)) }
+        val initial = when (which) {
+            ReportDateRangeType.FROM -> state.customFrom
+            ReportDateRangeType.TO -> state.customTo
+        }
+        DatePickerModal(
+            selectedDate = initial,
+            onDateSelected = onDateSelected@{
+                it ?: return@onDateSelected
+                when (which) {
+                    ReportDateRangeType.FROM -> viewModel.setCustomFrom(it)
+                    ReportDateRangeType.TO -> viewModel.setCustomTo(it)
+                }
+                picking = null
             },
-            dismissButton = {
-                TextButton(onClick = {
-                    picking = null
-                }) { Text(stringResource(R.string.report_cancel)) }
-            },
-        ) { DatePicker(state = pickerState) }
+            onDismiss = {
+                picking = null
+            }
+        )
     }
 }
 
@@ -216,6 +204,7 @@ val options = listOf(
     ReportKind.YEAR to R.string.report_kind_year,
     ReportKind.CUSTOM to R.string.report_kind_custom,
 )
+
 @Composable
 private fun KindSwitcher(
     selected: ReportKind,
@@ -520,7 +509,7 @@ private fun TrendCard(report: Report, currency: String, today: LocalDate) {
                 val barWidth = slot - gap
                 trend.forEachIndexed { i, bucket ->
                     val height =
-                        if (bucket.amount <= 0) 3.dp.toPx() else (size.height * bucket.amount / max).toFloat()
+                        if (bucket.amount <= 0) 3.dp.toPx() else (size.height * bucket.amount / max)
                             .coerceAtLeast(6.dp.toPx())
                     val color = when {
                         i == (selected ?: peakIndex) -> selectedColor
@@ -690,9 +679,11 @@ fun ReportCategoryScreen(
     val locale = LocalLocale.current
     val title = state.category?.name ?: stringResource(R.string.report_other)
     Surface(modifier = Modifier.fillMaxSize(), color = colors.surface) {
-        Column(Modifier
-            .fillMaxSize()
-            .statusBarsPadding()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+        ) {
             Row(
                 Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically

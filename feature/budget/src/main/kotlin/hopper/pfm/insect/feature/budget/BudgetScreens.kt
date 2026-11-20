@@ -37,6 +37,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -77,20 +78,15 @@ import hopper.pfm.insect.core.model.BudgetPeriod
 import hopper.pfm.insect.core.model.Category
 import hopper.pfm.insect.core.model.SyncStatus
 import hopper.pfm.insect.core.ui.CategoryAvatar
+import hopper.pfm.insect.core.ui.DatePickerModal
 import hopper.pfm.insect.core.ui.PfmPrimaryButton
 import hopper.pfm.insect.core.ui.PfmTextField
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-private fun LocalDate.toPickerMillis() = atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-private fun Long.toPickerDate(): LocalDate =
-    Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
 
 @Composable
-private fun periodName(period: BudgetPeriod): String = stringResource(
+internal fun periodName(period: BudgetPeriod): String = stringResource(
     when (period) {
         BudgetPeriod.DAY -> R.string.budget_period_day
         BudgetPeriod.MONTH -> R.string.budget_period_month
@@ -99,6 +95,7 @@ private fun periodName(period: BudgetPeriod): String = stringResource(
 )
 
 /** Content of the Hạn mức tab (the shell draws the top bar and the floating bar). */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BudgetListScreen(
     onAdd: () -> Unit,
@@ -183,22 +180,16 @@ fun BudgetListScreen(
         }
     }
     if (pickDate) {
-        val pickerState =
-            rememberDatePickerState(initialSelectedDateMillis = state.date.toPickerMillis())
-        DatePickerDialog(
-            onDismissRequest = { pickDate = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { viewModel.setDate(it.toPickerDate()) }
-                    pickDate = false
-                }) { Text(stringResource(R.string.budget_ok)) }
+        DatePickerModal(
+            selectedDate = state.date,
+            onDateSelected = {
+                it?.let(viewModel::setDate)
+                pickDate = false
             },
-            dismissButton = {
-                TextButton(onClick = {
-                    pickDate = false
-                }) { Text(stringResource(R.string.budget_cancel)) }
-            },
-        ) { DatePicker(state = pickerState) }
+            onDismiss = {
+                pickDate = false
+            }
+        )
     }
 }
 
@@ -307,10 +298,12 @@ private fun BudgetCard(
                     .height(10.dp)
                     .background(colors.surfaceContainerHighest, CircleShape)
             ) {
-                Box(Modifier
-                    .fillMaxWidth(fraction)
-                    .height(10.dp)
-                    .background(tint, CircleShape))
+                Box(
+                    Modifier
+                        .fillMaxWidth(fraction)
+                        .height(10.dp)
+                        .background(tint, CircleShape)
+                )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 val left = when (progress.status) {
@@ -352,379 +345,5 @@ private fun BudgetCard(
                 )
             }
         }
-    }
-}
-
-@Composable
-fun BudgetEditScreen(
-    budgetId: String?,
-    onBack: () -> Unit,
-    viewModel: BudgetEditViewModel = hiltViewModel<BudgetEditViewModel, BudgetEditViewModel.Factory>(
-        key = "budget-$budgetId",
-        creationCallback = { factory -> factory.create(budgetId) },
-    ),
-) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    var pick by rememberSaveable { mutableStateOf<String?>(null) } // "start" or "end"
-    var addThreshold by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(state.saved, state.deleted) { if (state.saved || state.deleted) onBack() }
-    val errors = if (state.showErrors) state.errors else emptySet()
-    val colors = MaterialTheme.colorScheme
-    val dateFormat = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
-
-    Surface(modifier = Modifier.fillMaxSize(), color = colors.surface) {
-        Column(Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .imePadding()) {
-            Row(
-                Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.budget_back)
-                    )
-                }
-                Text(
-                    stringResource(if (state.isNew) R.string.budget_new_title else R.string.budget_edit_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                if (!state.isNew) {
-                    IconButton(onClick = viewModel::delete) {
-                        Icon(
-                            Icons.Filled.Delete,
-                            contentDescription = stringResource(R.string.budget_delete)
-                        )
-                    }
-                }
-            }
-            Column(
-                Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp)
-            ) {
-                if (state.isNew && state.limitReached) {
-                    Text(
-                        stringResource(R.string.budget_limit),
-                        color = colors.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                }
-                SectionLabel(stringResource(R.string.budget_applies_to))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = state.categoryId == null,
-                        onClick = { viewModel.onCategory(null) },
-                        label = { Text(stringResource(R.string.budget_all_short)) },
-                        shape = CircleShape,
-                    )
-                    state.categories.forEach { category ->
-                        FilterChip(
-                            selected = state.categoryId == category.id,
-                            onClick = { viewModel.onCategory(category.id) },
-                            label = { Text(category.name) },
-                            leadingIcon = {
-                                CategoryAvatar(
-                                    category.icon,
-                                    category.color,
-                                    size = 22.dp
-                                )
-                            },
-                            shape = CircleShape,
-                        )
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                SectionLabel(stringResource(R.string.budget_period))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        BudgetPeriod.DAY to R.string.budget_period_day_label,
-                        BudgetPeriod.MONTH to R.string.budget_period_month_label,
-                        BudgetPeriod.YEAR to R.string.budget_period_year_label,
-                    ).forEach { (period, label) ->
-                        FilterChip(
-                            selected = state.period == period,
-                            onClick = { viewModel.onPeriod(period) },
-                            label = { Text(stringResource(label)) },
-                            shape = CircleShape
-                        )
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                AmountInput(
-                    value = state.amountText,
-                    symbol = Money.symbol(state.currency),
-                    label = stringResource(R.string.budget_amount),
-                    error = if (BudgetFormError.AmountRequired in errors) stringResource(R.string.budget_amount_error) else null,
-                    keyboardType = if (Money.decimals(state.currency) > 0) KeyboardType.Decimal else KeyboardType.Number,
-                    onChange = viewModel::onAmount,
-                    autoFocus = state.isNew && state.loaded,
-                )
-                Spacer(Modifier.height(16.dp))
-                DateField(
-                    value = state.startDate.format(dateFormat),
-                    label = stringResource(R.string.budget_start),
-                    error = if (BudgetFormError.YearOutOfRange in errors) stringResource(R.string.budget_year_error) else null,
-                    onClick = { pick = "start" },
-                )
-                Spacer(Modifier.height(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(28.dp),
-                    color = colors.surfaceContainerLow,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                stringResource(
-                                    when (state.period) {
-                                        BudgetPeriod.DAY -> R.string.budget_recurring_day
-                                        BudgetPeriod.MONTH -> R.string.budget_recurring_month
-                                        BudgetPeriod.YEAR -> R.string.budget_recurring_year
-                                    },
-                                ),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                            Text(
-                                if (state.recurring) stringResource(R.string.budget_recurring_on_hint)
-                                else stringResource(
-                                    R.string.budget_recurring_off_hint,
-                                    periodName(state.period)
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colors.onSurfaceVariant,
-                            )
-                        }
-                        Switch(checked = state.recurring, onCheckedChange = viewModel::onRecurring)
-                    }
-                }
-                if (state.recurring) {
-                    Spacer(Modifier.height(16.dp))
-                    Box {
-                        DateField(
-                            value = state.endDate?.format(dateFormat)
-                                ?: stringResource(R.string.budget_end_none),
-                            label = stringResource(R.string.budget_end),
-                            error = if (BudgetFormError.EndBeforeStart in errors) stringResource(R.string.budget_end_error) else null,
-                            onClick = { pick = "end" },
-                            endInset = if (state.endDate != null) 56.dp else 0.dp,
-                            trailing = state.endDate?.let {
-                                {
-                                    IconButton(onClick = { viewModel.onEndDate(null) }) {
-                                        Icon(
-                                            Icons.Filled.Close,
-                                            contentDescription = stringResource(R.string.budget_clear)
-                                        )
-                                    }
-                                }
-                            },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                SectionLabel(stringResource(R.string.budget_thresholds))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    state.thresholds.forEach { percent ->
-                        FilterChip(
-                            selected = true,
-                            onClick = { viewModel.removeThreshold(percent) },
-                            label = { Text("$percent%") },
-                            trailingIcon = {
-                                Icon(
-                                    Icons.Filled.Close,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            },
-                            shape = CircleShape,
-                        )
-                    }
-                    if (state.thresholds.size < 5) {
-                        FilterChip(
-                            selected = false,
-                            onClick = { addThreshold = true },
-                            label = { Text(stringResource(R.string.budget_threshold_add)) },
-                            shape = CircleShape
-                        )
-                    }
-                }
-                Text(
-                    if (BudgetFormError.BadThresholds in errors) stringResource(R.string.budget_threshold_error) else stringResource(
-                        R.string.budget_threshold_hint
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (BudgetFormError.BadThresholds in errors) colors.error else colors.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp, top = 8.dp),
-                )
-                Spacer(Modifier.height(16.dp))
-            }
-            PfmPrimaryButton(
-                text = stringResource(R.string.budget_save),
-                onClick = viewModel::save,
-                enabled = state.loaded,
-                modifier = Modifier.padding(16.dp),
-            )
-        }
-    }
-
-    pick?.let { which ->
-        val initial = if (which == "start") state.startDate else (state.endDate ?: state.startDate)
-        val pickerState =
-            rememberDatePickerState(initialSelectedDateMillis = initial.toPickerMillis())
-        DatePickerDialog(
-            onDismissRequest = { pick = null },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { millis ->
-                        val date = millis.toPickerDate()
-                        if (which == "start") viewModel.onStartDate(date) else viewModel.onEndDate(
-                            date
-                        )
-                    }
-                    pick = null
-                }) { Text(stringResource(R.string.budget_ok)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    pick = null
-                }) { Text(stringResource(R.string.budget_cancel)) }
-            },
-        ) { DatePicker(state = pickerState) }
-    }
-    if (addThreshold) {
-        var text by rememberSaveable { mutableStateOf("") }
-        val value = text.toIntOrNull()
-        AlertDialog(
-            onDismissRequest = { addThreshold = false },
-            title = { Text(stringResource(R.string.budget_threshold_dialog_title)) },
-            text = {
-                PfmTextField(
-                    value = text,
-                    onValueChange = { text = it.filter(Char::isDigit).take(3) },
-                    label = stringResource(R.string.budget_threshold_dialog_label),
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Done,
-                )
-            },
-            confirmButton = {
-                TextButton(enabled = value != null, onClick = {
-                    if (value != null && viewModel.addThreshold(value)) addThreshold = false
-                }) { Text(stringResource(R.string.budget_ok)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    addThreshold = false
-                }) { Text(stringResource(R.string.budget_cancel)) }
-            },
-        )
-    }
-}
-
-@Composable
-private fun DateField(
-    value: String,
-    label: String,
-    error: String?,
-    onClick: () -> Unit,
-    endInset: Dp = 0.dp,
-    trailing: @Composable (() -> Unit)? = null,
-) {
-    Box {
-        PfmTextField(
-            value = value,
-            onValueChange = {},
-            label = label,
-            readOnly = true,
-            errorText = error,
-            trailingIcon = trailing ?: {
-                Icon(
-                    Icons.Filled.CalendarMonth,
-                    contentDescription = null
-                )
-            },
-        )
-        Box(Modifier
-            .matchParentSize()
-            .padding(end = endInset)
-            .clickable(onClick = onClick))
-    }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
-    )
-}
-
-@Composable
-private fun AmountInput(
-    value: String,
-    symbol: String,
-    label: String,
-    error: String?,
-    keyboardType: KeyboardType,
-    onChange: (String) -> Unit,
-    autoFocus: Boolean,
-) {
-    val colors = MaterialTheme.colorScheme
-    val accent = if (error != null) colors.error else colors.primary
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(autoFocus) { if (autoFocus) focus.requestFocus() }
-    Column(Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = accent)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) {
-                if (value.isEmpty()) Text(
-                    "0",
-                    style = MaterialTheme.typography.displayMedium,
-                    color = colors.onSurfaceVariant.copy(alpha = 0.5f)
-                )
-                BasicTextField(
-                    value = value,
-                    onValueChange = onChange,
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.displayMedium.copy(color = colors.onSurface),
-                    cursorBrush = SolidColor(accent),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = keyboardType,
-                        imeAction = ImeAction.Next
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focus),
-                )
-            }
-            Text(
-                symbol,
-                style = MaterialTheme.typography.headlineMedium,
-                color = colors.onSurfaceVariant
-            )
-        }
-        HorizontalDivider(thickness = 2.dp, color = accent)
-        if (error != null) Text(
-            error,
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.error,
-            modifier = Modifier.padding(top = 4.dp)
-        )
     }
 }
