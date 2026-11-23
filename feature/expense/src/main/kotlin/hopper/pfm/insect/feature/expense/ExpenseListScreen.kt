@@ -27,9 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -193,17 +191,7 @@ fun ExpenseListScreen(
                 .padding(horizontal = 16.dp)
                 .padding(top = contentPadding.calculateTopPadding())
         )
-        FloatingActionButton(
-            onClick = onAdd,
-            shape = CircleShape,
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = contentPadding.calculateBottomPadding()),
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_expense))
-        }
+
         SnackbarHost(
             hostState = snackbar,
             modifier = Modifier

@@ -1,73 +1,45 @@
 package hopper.pfm.insect.feature.budget
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PieChart
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -79,10 +51,7 @@ import hopper.pfm.insect.core.model.Category
 import hopper.pfm.insect.core.model.SyncStatus
 import hopper.pfm.insect.core.ui.CategoryAvatar
 import hopper.pfm.insect.core.ui.DatePickerModal
-import hopper.pfm.insect.core.ui.PfmPrimaryButton
-import hopper.pfm.insect.core.ui.PfmTextField
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 
 @Composable
@@ -94,19 +63,29 @@ internal fun periodName(period: BudgetPeriod): String = stringResource(
     },
 )
 
+@Stable
+class BudgetScreenState {
+    var canAddItem by mutableStateOf(false)
+        internal set
+}
+
 /** Content of the Hạn mức tab (the shell draws the top bar and the floating bar). */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BudgetListScreen(
     onAdd: () -> Unit,
     onEdit: (budgetId: String) -> Unit,
     contentPadding: PaddingValues,
+    screenState: BudgetScreenState,
     modifier: Modifier = Modifier,
     viewModel: BudgetListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var pickDate by rememberSaveable { mutableStateOf(false) }
     val dateText = state.date.format(DateTimeFormatter.ofPattern("dd/MM"))
+
+    LaunchedEffect(screenState, state.canAddMore) {
+        screenState.canAddItem = state.canAddMore
+    }
 
     Box(modifier.fillMaxSize()) {
         LazyColumn(
@@ -163,19 +142,6 @@ fun BudgetListScreen(
                     currency = state.currency,
                     onClick = { onEdit(progress.budget.id) },
                 )
-            }
-        }
-        if (state.canAddMore) {
-            FloatingActionButton(
-                onClick = onAdd,
-                shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = contentPadding.calculateBottomPadding()),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.budget_add))
             }
         }
     }

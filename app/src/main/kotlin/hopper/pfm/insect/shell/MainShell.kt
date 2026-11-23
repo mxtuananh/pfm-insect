@@ -1,13 +1,20 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package hopper.pfm.insect.shell
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -21,17 +28,24 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.DonutSmall
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
@@ -41,15 +55,17 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import hopper.pfm.insect.R
+import hopper.pfm.insect.core.ui.DefaultDropShadowConfig
 import hopper.pfm.insect.core.ui.FloatingNavBar
 import hopper.pfm.insect.core.ui.NavBarItem
+import hopper.pfm.insect.core.ui.NoOp
+import hopper.pfm.insect.core.ui.PlainTooltipWrapper
 import hopper.pfm.insect.feature.auth.ProfileLinks
 import hopper.pfm.insect.feature.auth.ProfileScreen
 import hopper.pfm.insect.feature.budget.BudgetListScreen
+import hopper.pfm.insect.feature.budget.BudgetScreenState
 import hopper.pfm.insect.feature.expense.ExpenseListScreen
 import hopper.pfm.insect.feature.report.ReportScreen
-
-private val TopAppbarHeight = 60.dp
 
 val tabs = listOf(
     NavBarItem(R.string.tab_expenses, Icons.Outlined.Payments, Icons.Filled.Payments),
@@ -76,6 +92,7 @@ fun MainShell(
 ) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val hazeState = rememberHazeState()
+    val budgetScreenState = remember { BudgetScreenState() }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -87,11 +104,13 @@ fun MainShell(
             )
         },
         bottomBar = {
-            FloatingNavBar(
-                items = tabs,
-                selectedIndex = selected,
-                onSelect = { selected = it },
+            FloatingBottomBar(
+                selectedTabIndex = selected,
+                onTabIndexSelected = { selected = it },
                 hazeState = hazeState,
+                onAddExpense = onAddExpense,
+                onAddBudget = onAddBudget,
+                canAddNewBudgetItem = budgetScreenState.canAddItem
             )
         },
         modifier = Modifier
@@ -116,6 +135,7 @@ fun MainShell(
                     onAdd = onAddBudget,
                     onEdit = onEditBudget,
                     contentPadding = innerPadding,
+                    screenState = budgetScreenState
                 )
 
                 2 -> ReportScreen(
@@ -181,5 +201,62 @@ private fun MainShellTopAppBar(
                 .hazeEffect(style = topbarStyle, state = hazeState),
             onClick = onOpenNotifications
         )
+    }
+}
+
+@Composable
+fun FloatingBottomBar(
+    selectedTabIndex: Int,
+    onTabIndexSelected: (Int) -> Unit,
+    hazeState: HazeState,
+    onAddExpense: () -> Unit,
+    onAddBudget: () -> Unit,
+    canAddNewBudgetItem: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .navigationBarsPadding()
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        FloatingNavBar(
+            items = tabs,
+            selectedIndex = selectedTabIndex,
+            onSelect = onTabIndexSelected,
+            hazeState = hazeState,
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .padding(vertical = 16.dp)
+        )
+
+        AnimatedVisibility(
+            visible = when (selectedTabIndex) {
+                0, 1 -> true
+                else -> false
+            },
+            enter = fadeIn() + expandHorizontally(clip = false),
+            exit = fadeOut() + shrinkHorizontally(clip = false)
+        ) {
+            PlainTooltipWrapper(text = "Add new item") {
+                FloatingActionButton(
+                    onClick = when (selectedTabIndex) {
+                        0 -> onAddExpense
+                        1 if (canAddNewBudgetItem) -> onAddBudget
+                        else -> NoOp
+                    },
+                    shape = CircleShape,
+                    elevation = FloatingActionButtonDefaults.bottomAppBarFabElevation(),
+                    modifier = Modifier
+                        .padding(vertical = 16.dp)
+                        .padding(start = 12.dp, end = 4.dp)
+                        .dropShadow(CircleShape, DefaultDropShadowConfig)
+                ) {
+                    Icon(imageVector = Icons.Rounded.Add, contentDescription = "Add new item")
+                }
+            }
+        }
     }
 }

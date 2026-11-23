@@ -3,7 +3,7 @@ package hopper.pfm.insect.core.ui
 import androidx.annotation.StringRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,12 +12,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -52,8 +53,7 @@ data class NavBarItem(
 )
 
 private val BarHeight = 72.dp
-private val SlotWidth = 80.dp
-private val SlotHeight = 64.dp
+private val BarMaxWidth = 320.dp
 
 /**
  * Floating pill navigation bar (approved design): 72dp high, 16dp margin, surfaceContainer ~72% over a 24dp
@@ -77,15 +77,17 @@ fun FloatingNavBar(
         fallbackTint = HazeTint(container.copy(alpha = 0.75f)),
     )
     val selectedBackground = MaterialTheme.colorScheme.secondaryContainer
-    val dpOffsetX by animateDpAsState(
-        targetValue = SlotWidth * selectedIndex,
-        label = "dpOffsetX",
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)
+    val selectedIndicatorOffsetXMultiplier by animateFloatAsState(
+        targetValue = selectedIndex.toFloat(),
+        label = "selectedIndicatorOffsetXMultiplier",
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        )
     )
-    Box(
+
+    Row(
         modifier = modifier
-            .navigationBarsPadding()
-            .padding(16.dp)
             .dropShadow(CircleShape) {
                 this.color = DefaultShadowColor
                 this.offset = Offset(x = 0f, y = 4f)
@@ -94,46 +96,51 @@ fun FloatingNavBar(
             }
             .clip(CircleShape)
             .height(BarHeight)
-            .hazeEffect(state = hazeState, style = style),
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 4.dp, vertical = 4.dp)
-                .drawBehind {
-                    val left = dpOffsetX.toPx()
-                    drawRoundRect(
-                        color = selectedBackground,
-                        topLeft = Offset(x = left, y = 0f),
-                        size = size.copy(width = SlotWidth.toPx()),
-                        cornerRadius = CornerRadius(size.height / 2f)
-                    )
-                },
-            horizontalArrangement = Arrangement.spacedBy(0.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            items.forEachIndexed { index, item ->
-                NavSlot(
-                    item = item,
-                    selected = index == selectedIndex,
-                    onClick = { onSelect(index) },
+            .widthIn(max = BarMaxWidth)
+            .fillMaxWidth()
+            .hazeEffect(state = hazeState, style = style)
+            .padding(horizontal = 4.dp, vertical = 4.dp)
+            .drawBehind {
+                val itemW = size.width / items.size
+                val left = itemW * selectedIndicatorOffsetXMultiplier
+                drawRoundRect(
+                    color = selectedBackground,
+                    topLeft = Offset(x = left, y = 0f),
+                    size = size.copy(width = itemW),
+                    cornerRadius = CornerRadius(size.height / 2f)
                 )
-            }
+            },
+        horizontalArrangement = Arrangement.spacedBy(0.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items.forEachIndexed { index, item ->
+            NavSlot(
+                item = item,
+                selected = index == selectedIndex,
+                onClick = { onSelect(index) },
+                modifier = Modifier
+                    .weight(1f)
+            )
         }
     }
 }
 
 @Composable
-private fun NavSlot(item: NavBarItem, selected: Boolean, onClick: () -> Unit) {
+private fun NavSlot(
+    item: NavBarItem,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val colors = MaterialTheme.colorScheme
-    val contentColor by animateColorAsState (
+    val contentColor by animateColorAsState(
         targetValue = if (selected) colors.onSecondaryContainer else colors.onSurfaceVariant,
         label = "contentColor"
     )
     Box(
-        modifier = Modifier
+        modifier = modifier
             .clip(CircleShape)
-            .width(SlotWidth)
-            .height(SlotHeight)
+            .fillMaxSize()
             .clickable(enabled = !selected, role = Role.Tab, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -158,4 +165,5 @@ private fun NavSlot(item: NavBarItem, selected: Boolean, onClick: () -> Unit) {
 /** Space a scrolling screen must keep free at its bottom: the floating bar plus the system navigation bar. */
 @Composable
 fun floatingBarSpace(): androidx.compose.ui.unit.Dp =
-    FloatingBarContentPadding + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    FloatingBarContentPadding + WindowInsets.navigationBars.asPaddingValues()
+        .calculateBottomPadding()
