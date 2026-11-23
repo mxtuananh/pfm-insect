@@ -61,7 +61,6 @@ import hopper.pfm.insect.core.model.UserProfile
 import hopper.pfm.insect.core.ui.PfmBanner
 import hopper.pfm.insect.core.ui.PfmPrimaryButton
 import hopper.pfm.insect.core.ui.PfmTextField
-import hopper.pfm.insect.core.ui.floatingBarSpace
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -157,7 +156,6 @@ fun ProfileScreen(
             onClick = { askLogout = true },
             danger = true,
         )
-        Spacer(Modifier.height(floatingBarSpace()))
     }
     if (askLogout) {
         AlertDialog(
@@ -316,11 +314,13 @@ fun EditProfileScreen(onBack: () -> Unit, viewModel: EditProfileViewModel = hilt
     LaunchedEffect(state.saved) { if (state.saved) onBack() }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        Column(Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .imePadding()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
+        ) {
             Row(
                 Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -383,9 +383,10 @@ fun EditProfileScreen(onBack: () -> Unit, viewModel: EditProfileViewModel = hilt
                         label = stringResource(R.string.edit_timezone),
                         readOnly = true,
                     )
-                    Box(Modifier
-                        .matchParentSize()
-                        .clickable { pickingZone = true })
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .clickable { pickingZone = true })
                 }
                 Spacer(Modifier.height(16.dp))
                 Text(
